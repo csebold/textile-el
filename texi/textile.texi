@@ -1,0 +1,72 @@
+\input texinfo
+@comment $Id$
+@comment %**start of header
+@setfilename textile
+@settitle textile
+@syncodeindex pg cp
+@comment %**end of header
+@copying
+This manual is for textile.el
+(version @value{VERSION}, @value{UPDATED}),
+which is an implementation of Textile and MT-Textile in Emacs Lisp.
+
+@quotation
+This manual is considered free software; you can redistribute it
+and/or modify it under the terms of the GNU General Public License as
+published by the Free Software Foundation; either version 2 of the
+License, or (at your option) any later version.
+
+This manual is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public
+License along with GNU Emacs; if not, write to the Free
+Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
+MA 02111-1307, USA.
+
+Latest version should be available at:
+   <URL:http://www.livingtorah.org/~csebold/emacs/textile/>
+@end quotation
+
+Copyright @copyright{} 2004 Charles Sebold @email{csebold@@livingtorah.org}
+@end copying
+
+@dircategory Emacs
+@direntry
+* textile: (textile)Textile, a humane web text generator for Emacs.
+@end direntry
+
+@titlepage
+@title Textile.el
+@subtitle for version @value{VERSION}, @value{UPDATED}
+@author Charles Sebold (@email{csebold@@livingtorah.org})
+@page
+@vskip 0pt plus 1filll
+@insertcopying
+@end titlepage
+
+@contents
+
+@ifnottex
+@node Top
+@top Textile.el
+
+@insertcopying
+@end ifnottex
+
+This manual is not complete yet.
+
+@menu
+* Using textile.el::
+* Textile Formatting::
+* Index::
+@end menu
+
+@node Index
+@unnumbered Index
+
+@printindex cp
+
+@bye

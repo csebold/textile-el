@@ -28,7 +28,7 @@ h2. Textile lisp evaluation:
 
 This is #[((textile-version))]# running on #[((car (textile-split-string (emacs-version) "\n")))]# if you were curious.
 
-What about @#[((textile-version))]@@#@?
+What about @#@@[((textile-version))]#@?
 
 h2. Textile smart quotes tests:
 
@@ -73,6 +73,8 @@ h2. Textile v2 image tests:
 Can an _image be !http://a.com/b.gif (surrounded by tags)! without_ breaking?
 
 h2. Textile link tests:
+
+See http://www.livingtorah.org for a normal inline link without any special text.
 
 OK, "here is a link":http://www.livingtorah.org to my website.
 
