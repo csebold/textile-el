@@ -198,6 +198,7 @@ or STOP-REGEXP."
         (rowspan nil)
         (colspan nil)
         (textile-header nil)
+        (not-finished t)
         (attrib-string (or attrib-string
                            (buffer-substring (point) (point-max)))))
      (makunbound 'Textile-next-block-clear)
@@ -205,85 +206,81 @@ or STOP-REGEXP."
        (insert 
         (or attrib-string ""))
        (goto-char (point-min))
-       (setq my-plist
-             (plist-put my-plist
-                        'textile-attrib-string-length (1- (point-max))))
-       (setq my-plist
-             (plist-put my-plist 'textile-stop-length 1))
-       (while (not (eobp))
+       (while not-finished
          (let ((this-char (char-after)))
            (cond
-           ((looking-at stop-regexp)
-            (re-search-forward stop-regexp nil t)
-            (setq my-plist
-                  (plist-put my-plist 'textile-stop-length
-                             (length (match-string 1))))
-            (setq my-plist (plist-put my-plist
-                                      'textile-attrib-string-length (point)))
-            (goto-char (point-max)))
-           ((looking-at "{\\([^}]*\\)}")
-            (setq style (concat style (match-string 1) "; "))
-            (re-search-forward "}" nil t))
-           ((looking-at "\\[\\(.*?\\)\\]")
-            (setq lang (match-string 1))
-            (re-search-forward "\\]" nil t))
-           ((looking-at "(\\([^) (]+\\))")
-            (let ((this-attrib (split-string (match-string 1) "#")))
-              (setq class (car this-attrib))
-              (setq id (cadr this-attrib)))
-            (re-search-forward ")" nil t))
-           ((equal this-char ?\()
-            (setq left-pad (1+ left-pad))
-            (forward-char 1))
-           ((equal this-char ?\))
-            (setq right-pad (1+ right-pad))
-            (forward-char 1))
-           ((equal this-char ?\>)
-            (if (boundp 'Textile-in-table)
-                (setq align "right")
-              (setq style (concat style "text-align: right; ")))
-            (forward-char 1))
-           ((looking-at "<>")
-            (setq style (concat style "text-align: justify; "))
-            (forward-char 2))
-           ((equal this-char ?\<)
-            (if (boundp 'Textile-in-table)
-                (setq align "left")
-              (setq style (concat style "text-align: left; ")))
-            (forward-char 1))
-           ((equal this-char ?\=)
-            (cond
-             ((boundp 'Textile-in-table)
-              (setq align "center"))
-             ((boundp 'Textile-in-table-outer-tag)
-              (setq style (concat style
-                                  "margin-left: auto; margin-right: auto; ")))
-             (t (setq style (concat style "text-align: center; "))))
-            (forward-char 1))
-           ((equal this-char ?^ )
-            (setq valign "top")
-            (forward-char 1))
-           ((equal this-char ?\~)
-            (setq valign "bottom")
-            (forward-char 1))
-           ((looking-at "[\\]\\([0-9]+\\)")
-            (setq colspan (match-string 1))
-            (re-search-forward "[\\]\\([0-9]+\\)" nil t))
-           ((looking-at "/\\([0-9]+\\)")
-            (setq rowspan (match-string 1))
-            (re-search-forward "/\\([0-9]+\\)" nil t))
-           ((equal this-char ?\_)
-            (setq textile-header t)
-            (forward-char 1))
-           ((and (equal this-char ?\|)
-                 (boundp 'Textile-in-table))
-            (setq my-plist (plist-put nil 'textile-attrib-string-length 0)))
-           (t
-             ; if you hit something you don't recognize, then this
-             ; isn't an attribute string
-            (setq my-plist (plist-put nil
-                                      'textile-attrib-string-length 0))
-            (goto-char (point-max)))))))
+            ((eobp)
+             (setq not-finished nil))
+            ((looking-at stop-regexp)
+             (re-search-forward stop-regexp nil t)
+             (setq not-finished nil))
+            ((looking-at "{\\([^}]*\\)}")
+             (setq style (concat style (match-string 1) "; "))
+             (re-search-forward "}" nil t))
+            ((looking-at "\\[\\(.*?\\)\\]")
+             (setq lang (match-string 1))
+             (re-search-forward "\\]" nil t))
+            ((looking-at "(\\([^) (]+\\))")
+             (let ((this-attrib (split-string (match-string 1) "#")))
+               (setq class (car this-attrib))
+               (setq id (cadr this-attrib)))
+             (re-search-forward ")" nil t))
+            ((looking-at "(.* .*)")
+             ; parenthetical statement including a space
+             (setq not-finished nil))
+            ((equal this-char ?\()
+             (setq left-pad (1+ left-pad))
+             (forward-char 1))
+            ((equal this-char ?\))
+             (setq right-pad (1+ right-pad))
+             (forward-char 1))
+            ((equal this-char ?\>)
+             (if (boundp 'Textile-in-table)
+                 (setq align "right")
+               (setq style (concat style "text-align: right; ")))
+             (forward-char 1))
+            ((looking-at "<>")
+             (setq style (concat style "text-align: justify; "))
+             (forward-char 2))
+            ((equal this-char ?\<)
+             (if (boundp 'Textile-in-table)
+                 (setq align "left")
+               (setq style (concat style "text-align: left; ")))
+             (forward-char 1))
+            ((equal this-char ?\=)
+             (cond
+              ((boundp 'Textile-in-table)
+               (setq align "center"))
+              ((boundp 'Textile-in-table-outer-tag)
+               (setq style (concat style
+                                   "margin-left: auto; margin-right: auto; ")))
+              (t (setq style (concat style "text-align: center; "))))
+             (forward-char 1))
+            ((equal this-char ?^ )
+             (setq valign "top")
+             (forward-char 1))
+            ((equal this-char ?\~)
+             (setq valign "bottom")
+             (forward-char 1))
+            ((looking-at "[\\]\\([0-9]+\\)")
+             (setq colspan (match-string 1))
+             (re-search-forward "[\\]\\([0-9]+\\)" nil t))
+            ((looking-at "/\\([0-9]+\\)")
+             (setq rowspan (match-string 1))
+             (re-search-forward "/\\([0-9]+\\)" nil t))
+            ((equal this-char ?\_)
+             (setq textile-header t)
+             (forward-char 1))
+;;             ((and (equal this-char ?\|)
+;;                   (boundp 'Textile-in-table))
+;;              (setq my-plist (plist-put nil 'textile-attrib-string-length 0)))
+            (t
+            ; if you hit something you don't recognize, then this
+            ; isn't an attribute string
+             (setq not-finished nil)))))
+       (setq my-plist (plist-put my-plist 'textile-attrib-string
+                                 (buffer-substring (point-min)
+                                                   (point)))))
      (if (> left-pad 0)
          (setq style (concat style "padding-left: "
                              (format "%d" left-pad) "em; ")))
@@ -300,10 +297,6 @@ or STOP-REGEXP."
        (when (string= (eval this-variable) "")
          (set this-variable nil))
        (setq my-plist (plist-put my-plist this-variable (eval this-variable))))
-;;      (message "Attribute length for \"%s\" (length %s) is %s"
-;;               attrib-string (length attrib-string)
-;;               (plist-get my-plist
-;;                          'textile-attrib-string-length))
      my-plist))
 
 (defun textile-process-block ()
@@ -415,11 +408,11 @@ footnotes, etc."
                                           "\\(?:$\\|\s\\|[<,;:!?.]\\)") nil t)
                (point)))
             (if (not (string= tag "=="))
-                (let ((attributes (textile-attributes "[A-Za-z0-9]"))
+                (let ((attributes (textile-attributes " "))
                       (html-tag (textile-generate-inline-tag
                                  tag
                                  textile-inline-tag-list)))
-                  (textile-delete-attributes attributes t)
+                  (textile-delete-attributes attributes)
                   (textile-tag-insert html-tag attributes)
                   (re-search-forward (concat
                                       (regexp-quote tag)
@@ -796,16 +789,9 @@ Any attributes that start with \"textile-\" will be ignored."
     (backward-char 1))
   (forward-char 1))
 
-(defun textile-delete-attributes (attributes &optional leave-last)
-  "Delete textile-tagged attributes starting at (point).
-If LEAVE-LAST is t, then don't delete the last stopping-point character."
-  (let ((length (plist-get attributes 'textile-attrib-string-length)))
-    (if (> length 0)
-        (delete-region (point)
-                       (+ (point) length
-                          (if leave-last
-                              (- 0
-                                 (plist-get attributes 'textile-stop-length))
-                            0))))))
+(defun textile-delete-attributes (attributes)
+  "Delete textile-tagged attributes starting at (point)."
+  (if (looking-at (regexp-quote (plist-get attributes 'textile-attrib-string)))
+      (replace-match "")))
 
 (provide 'textile)
