@@ -1,6 +1,7 @@
 ==
 <!-- $Id$ -->
 ==
+
 p((<>[11](my_class). This is a Textile test.
 
 h1. This is a first-level header.
@@ -16,6 +17,12 @@ h1. This is a first-level header.
 bq. This is a blockquote.
 I am going to cut it into small lines
 With their own line breaks.
+
+dl. term:definition
+block:not usually something like this,
+and here's a line break to make things really interesting
+term with spaces:the definition should be self-evident
+finally:a last definition to see if it works
 
 ==
 <p>This is supposed to be escaped text.  I should be able to do [1] in here with no problems, as well as other weird things.</p>
