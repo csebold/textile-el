@@ -325,6 +325,24 @@ like that).")
           (replace-match "&apos;")))
       (buffer-string))))
 
+(defun textile-process-brace (my-string)
+  "Process things in square brackets separately."
+  ; this actually isn't happening at the right time; this needs to be
+  ; handled before the inline processing, but I don't know how to make
+  ; the braces go away at that point.  FIXME
+  (if (listp my-string)
+      (if (member 'textile-tag my-string)
+          my-string
+        (mapcar 'textile-process-brace my-string))
+    (if (string-match "\\[\\([^\000]+?\\)\\]" my-string)
+        (list (substring my-string 0 (match-beginning 0))
+              (textile-process-brace
+               (textile-process-inline (match-string 1 my-string)))
+              (textile-process-brace (substring my-string
+                                                (match-end 0)))
+              (plist-put nil 'textile-tag nil))
+      my-string)))
+
 (defun textile-process-acronym (my-string)
   "Process all acronyms in a given string or list of strings."
   (if (listp my-string)
@@ -372,7 +390,8 @@ like that).")
               (plist-put nil 'textile-tag nil))
       (if (string-match textile-inline-tag-regexp my-string)
           (if (not (equal (match-beginning 0) 0))
-              (list (substring my-string 0 (match-beginning 1))
+              (list (textile-remove-braces
+                     (substring my-string 0 (match-beginning 1)))
                     (save-match-data
                       (textile-process-inline (substring my-string
                                                          (match-beginning 1))))
@@ -383,8 +402,10 @@ like that).")
                                                            (match-beginning 1)
                                                            (match-end 3))))
                       (save-match-data
-                        (textile-process-inline (substring my-string
-                                                           (match-end 3))))
+                        (textile-process-inline
+                         (textile-remove-braces
+                          (substring my-string
+                                     (match-end 3)))))
                       (plist-put nil 'textile-tag nil))
               (let* ((attributes (plist-put
                                   (save-match-data
@@ -406,6 +427,17 @@ like that).")
                             attributes)
                     (list (textile-process-inline text)
                           attributes))))))
+        my-string))))
+
+(defun textile-remove-braces (my-string)
+  "Remove inappropriate braces from the beginning or end of a string."
+  (save-match-data
+    (if (listp my-string)
+        (if (member 'textile-tag my-string)
+            my-string
+          (mapcar 'textile-remove-braces my-string))
+      (if (string-match "^\\]?\\(.*?\\)\\[?$" my-string)
+          (match-string 1 my-string)
         my-string))))
 
 (defun textile-process-footnote (my-string)
