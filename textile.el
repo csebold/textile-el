@@ -67,7 +67,6 @@
                (class (plist-get l-attributes 'class))
                (id (plist-get l-attributes 'id))
                (lang (plist-get l-attributes 'lang)))
-          (message "list item attribute is: %s" (match-string 3))
           (cond
            ((string= tag "#")
             (textile-block-ol style class id lang li-attributes))
@@ -94,7 +93,7 @@
     (with-temp-buffer
       (insert 
        (or attrib-string ""))
-      (beginning-of-buffer)
+      (goto-char (point-min))
       (while (not (eobp))
         (let ((this-char (char-after)))
           (cond
@@ -172,6 +171,18 @@
       ; insert more inline tests here
       )))
 
+(defun textile-process-definition-block ()
+  (save-excursion
+    (save-restriction
+      (narrow-to-region (point)
+                        (save-excursion
+                          (textile-end-of-paragraph)
+                          (point)))
+      (textile-inline-dl)
+      (textile-inline-generic)
+      ; insert more inline tests here
+      )))
+
 (defun textile-inline-generic ()
   (save-excursion
     (while (re-search-forward "\\[\\([0-9]+\\)\\]" nil t)
@@ -202,6 +213,40 @@
                                         (plist-get attributes 'class)
                                         (plist-get attributes 'id)
                                         (plist-get attributes 'lang)))))))
+
+(defun textile-inline-dl ()
+  (if textile-br-all-newlines
+      (save-excursion
+        (while (progn
+                 (if (not (looking-at ".*?[^ \n]+:[^ ]"))
+                     (save-excursion
+                       (backward-char 1)
+                       (insert "<br \\>"))
+;;                    (if (condition-case nil
+;;                            (save-excursion
+;;                              (backward-char 5))
+;;                          (error nil))
+;;                        (save-excursion
+;;                          (backward-char 1)
+;;                          (insert "</dd>")))
+                   (insert "<dt>")
+                   (re-search-forward ":" nil t)
+                   (save-excursion
+                     (backward-char 1)
+                     (insert "</dt>"))
+                   (delete-backward-char 1)
+                   (insert "<dd>"))
+                 (re-search-forward "\n" nil t))))))
+
+(defun textile-block-dl (extended style class id lang)
+  (if extended
+      (textile-error "Extended <dl> block doesn't make sense.")
+    (textile-delete-tag "dl")
+    (textile-block-start-tag-insert "dl" style class id lang)
+    (textile-process-definition-block)
+    (textile-end-of-paragraph)
+    (textile-block-end-tag-insert "dl")
+    (textile-next-paragraph)))
 
 (defun textile-block-ol (style class id lang li-attributes)
   (delete-region (point)
