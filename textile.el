@@ -5,11 +5,9 @@
   (let ((my-region (buffer-substring-no-properties start end)))
     (with-temp-buffer
       (insert my-region)
-      (beginning-of-buffer)
-      (while (not (equal (point)
-                         (save-excursion
-                           (re-search-forward "^\n" nil t)
-                           (point))))
+      (goto-char (point-min))
+      (while (not (equal (point) (point-max)))
+        (message (format "Point is at %d." (point)))
         (let ((this-block-type "p")
               (this-block-tag "p")
               (this-block-class "")
@@ -17,10 +15,11 @@
               (this-block-id ""))
           (narrow-to-region (point)
                             (save-excursion
-                              (re-search-forward "^\n" nil t)
+                              (re-search-forward "^\n" nil 1)
+                              ; Not working right at the end; FIXME
                               (backward-char 2)
                               (point)))
-          (beginning-of-buffer)
+          (goto-char (point-min))
           (while (looking-at "\n")
             (forward-char 1))
           (if (looking-at "\\([^ ]+\\)\\. ")
@@ -41,10 +40,9 @@
                 (if this-block-tag
                     (delete-region (point)
                                    (save-excursion
-                                     (re-search-forward "\\([^ ]+\\)\\. ")
-                                     (point)))
+                                     (re-search-forward "\\([^ ]+\\)\\. ")))
                   (setq this-block-tag "p"))))
-          (beginning-of-buffer)
+          (goto-char (point-min))
           (while (looking-at "\n")
             (forward-char 1))
           (insert (concat "<" this-block-tag 
@@ -60,11 +58,11 @@
                           ">"
                           (if (string= this-block-type "bc")
                               "<code>")))
-          (end-of-buffer)
+          (goto-char (point-max))
           (insert (concat (if (string= this-block-type "bc")
                               "</code>") "</" this-block-tag ">"))
           (widen)
-          (re-search-forward "^\n" nil t)))
+          (re-search-forward "^\n" nil 1)))
       (buffer-string))))
 
 (defun textile-region (start end)
