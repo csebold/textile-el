@@ -497,7 +497,7 @@ like that).")
    my-string
     ; links
    (while (string-match
-           "\\(\"[^\"]*?\":[^ ]*?\\)\\([,.;:\"']?\\(?: \\|$\\)\\)"
+           "\\(\"[^\"]*?\":[^ ]*?\\)\\([],.;:\"']?\\(?: \\|$\\)\\)"
            my-string)
      (push (match-string 1 my-string) Textile-tags)
      (setq my-string
@@ -774,16 +774,21 @@ like that).")
 
 (defun textile-process-link (my-string)
   "Process all links in a given string or list of strings."
-  (textile-skip-tags 'textile-process-link my-string
+  (if (listp my-string)
+      (if (member 'textile-tag my-string)
+          my-string
+        (mapcar 'textile-process-link my-string))
+;  (textile-skip-tags 'textile-process-link my-string
     (if (or
          (string-match
           "\"\\([^\"]*?\\)\":\\([^ ]*?\\)\\(&#[0-9]+;\\)"
           my-string)
          (string-match
-          "\"\\([^\"]*?\\)\":\\([^ ]*?\\)\\([,.;:\"']?\\(?: \\|$\\)\\)"
+          "\"\\([^\"]*?\\)\":\\([^ ]*?\\)\\([],.;:\"']?\\(?: \\|$\\)\\)"
           my-string))
         (if (not (equal (match-beginning 0) 0))
-            (list (substring my-string 0 (match-beginning 0))
+            (list (textile-remove-braces
+                   (substring my-string 0 (match-beginning 0)))
                   (textile-process-link (substring my-string
                                                    (match-beginning 0)))
                   (plist-put nil 'textile-tag nil))
@@ -792,12 +797,14 @@ like that).")
                       (textile-process-link (substring my-string
                                                        (match-beginning 0)
                                                        (match-end 3))))
-                    (textile-process-link (substring my-string
-                                                     (match-end 3)))
+                    (textile-process-link
+                      (substring my-string
+                                 (match-end 3)))
                     (plist-put nil 'textile-tag nil))
             (let* ((text (match-string 1 my-string))
                    (url (match-string 2 my-string))
-                   (delimiter (match-string 3 my-string))
+                   (delimiter (textile-remove-braces
+                               (match-string 3 my-string)))
                    (title "")
                    (alias-info (textile-alias-to-url url textile-alias-list)))
               (if alias-info
@@ -984,7 +991,9 @@ or STOP-REGEXP."
             ((looking-at "{\\([^}]*\\)}")
              (setq style (concat style (match-string 1) "; "))
              (re-search-forward "}" nil t))
-            ((looking-at "\\[\\(.*?\\)\\]")
+            ((and
+              (looking-at "\\[\\(.*?\\)\\]")
+              (not (memq 'inline context)))
              (setq lang (match-string 1))
              (re-search-forward "\\]" nil t))
             ((looking-at "(\\([^) (]+\\))")
