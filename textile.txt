@@ -64,6 +64,8 @@ h2. Textile v2 image tests:
 
 !{border: 0px}http://a.com/b.gif 30x40 (with a title)!:ltm
 
+Can an _image be !http://a.com/b.gif (surrounded by tags)! without_ breaking?
+
 h2. Textile link tests:
 
 OK, "here is a link":http://www.livingtorah.org to my website.
@@ -75,6 +77,8 @@ Let's try aliases: "here":ltm is the ministry link, and "here":ltj is the journa
 And then "a normal link (Sun)":http://www.sun.com to Sun's website.
 
 And a "link including an ampersand":http://www.example.com/cgi-bin/test?a=b&c=d, which would also be a good way to see if the URL-finding code knows where to stop.
+
+We alternate between TLA(Three Letter Acronym) and TLA in this paragraph.
 
 Will thís be cônverted to Unicode, or at least entities?
 
