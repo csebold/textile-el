@@ -153,7 +153,11 @@ like that).")
         (setq attributes (plist-put attributes 'textile-extended extended))
         (cond
          ((fboundp my-function)
-          (funcall my-function my-string attributes)))))
+          (funcall my-function my-string attributes))
+         (t
+          (setq my-plist (plist-put my-plist 'tag "p"))
+          (setq my-plist (plist-put my-plist 'explicit nil))
+          (list (textile-inline-to-list my-string) my-plist)))))
      (t
       (setq my-plist (plist-put my-plist 'tag "p"))
       (setq my-plist (plist-put my-plist 'explicit nil))
@@ -679,9 +683,9 @@ including attributes if necessary."
 The only valid attributes to include in here are \"<\" or \">\" for clearing
 left or right floating, or nothing for the default of \"both\"."
   (if (string-match "clear\\([<>]?\\)\\. *" my-string)
-      (let ((attrib-string (match-string 1)))
+      (let ((attrib-string (match-string 1 my-string)))
         (re-search-forward "clear\\([<>]?\\)\\. *" nil t)
-        (replace-match "" t nil my-string)
+        (setq my-string (replace-match "" t nil my-string))
         (setq Textile-next-block-clear
               (cond
                ((string= attrib-string "<")
