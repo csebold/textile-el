@@ -189,6 +189,15 @@ like that).")
     (insert my-string)
     (goto-char (point-min))
     (while (re-search-forward "^<pre>" nil t)
+      (save-match-data
+        (if (looking-at "\n?<code")
+            (save-excursion
+              (re-search-forward "<code.*?>" nil t)
+              (if (looking-at "\\([\000-\177]*?\\)\\(</code>\\|</pre>\\)")
+                  (replace-match (concat
+                                  (save-match-data
+                                    (textile-process-code (match-string 1)))
+                                  (match-string 2)))))))
       (if (save-excursion
             (save-match-data
               (re-search-forward "</pre>" nil t)
@@ -450,11 +459,15 @@ like that).")
       (if (member 'textile-tag my-string)
           my-string
         (mapcar 'textile-encode-manual my-string))
-    ; FIXME - handle entities in code block?
     (while (string-match
-            "<code.*?>.*?</code>\\|<a .*?>\\|</a>"
+            "\\(\\(<code.*?>\\)\\(.*?\\)\\(</code>\\)\\|<a .*?>\\|</a>\\)"
             my-string)
-      (push (match-string 0 my-string) Textile-manual)
+      (if (match-string 3 my-string)
+          (push (concat (match-string 2 my-string)
+                        (save-match-data
+                          (textile-process-code (match-string 3 my-string)))
+                        (match-string 4 my-string)) Textile-manual)
+        (push (match-string 0 my-string) Textile-manual))
       (setq my-string
             (replace-match
              (format "emacs_textile_manual_token_%0d_x"
