@@ -21,6 +21,8 @@
           tag "+"
           textile-block-tag-regexp-end))
 
+(defvar textile-list-tag-regexp "^\\([*#]\\)\\(.*?\\) ")
+
 (defvar textile-error-break nil)
 
 ; This variable determines whether we are using standard <br /> for
@@ -34,29 +36,43 @@
   (narrow-to-region start end)
   (goto-char (point-min))
   (while
-      (progn
-        (if (looking-at textile-block-tag-regexp)
-            (progn
-              (let* ((tag (match-string 1))
-                     (attributes (textile-attributes (match-string 2)))
-                     (extended (string= (match-string 3) ".."))
-                     (style (plist-get attributes 'style))
-                     (class (plist-get attributes 'class))
-                     (id (plist-get attributes 'id))
-                     (lang (plist-get attributes 'lang))
-                     (my-function
-                      (car (read-from-string (concat "textile-block-" tag)))))
-                (cond
-                 ((fboundp my-function)
-                  (funcall my-function extended style class id lang))
-                 ((string-match "^h[1-6]$" tag)
-                  (textile-block-header
-                   (substring tag 1 2) extended style class id lang))
-                 ((string-match "^fn[0-9]+$" tag)
-                  (textile-block-footnote
-                   (substring tag 2) extended style "footnote" tag lang))
-                 (t (textile-block-p nil nil nil nil nil)))))
-          (textile-block-p nil nil nil nil nil))))
+      (cond
+       ((looking-at textile-block-tag-regexp)
+        (let* ((tag (match-string 1))
+               (attributes (textile-attributes (match-string 2)))
+               (extended (string= (match-string 3) ".."))
+               (style (plist-get attributes 'style))
+               (class (plist-get attributes 'class))
+               (id (plist-get attributes 'id))
+               (lang (plist-get attributes 'lang))
+               (my-function
+                (car (read-from-string (concat "textile-block-" tag)))))
+          (cond
+           ((fboundp my-function)
+            (funcall my-function extended style class id lang))
+           ((string-match "^h[1-6]$" tag)
+            (textile-block-header
+             (substring tag 1 2) extended style class id lang))
+           ((string-match "^fn[0-9]+$" tag)
+            (textile-block-footnote
+             (substring tag 2) extended style "footnote" tag lang))
+           (t (textile-block-p nil nil nil nil nil)))))
+       ((looking-at textile-list-tag-regexp)
+        (let* ((tag (match-string 1))
+               (attributes (textile-attributes (match-string 2)))
+               (style (plist-get attributes 'style))
+               (class (plist-get attributes 'class))
+               (id (plist-get attributes 'id))
+               (lang (plist-get attributes 'lang)))
+          (cond
+           ((string= tag "#")
+            (textile-block-ol style class id lang))
+           ((string= tag "*")
+            (textile-block-ul style class id lang))
+           (t
+            (textile-error "What kind of list is this?")
+            (textile-block-p nil nil nil nil nil)))))
+       (t (textile-block-p nil nil nil nil nil))))
   (widen))
 
 (defun textile-attributes (attrib-string)
@@ -127,14 +143,53 @@
                         (save-excursion
                           (textile-end-of-paragraph)
                           (point)))
-      (if textile-br-all-newlines
-          (save-excursion
-            (while (re-search-forward "\n" nil t)
-              (backward-char 1)
-              (insert "<br />")
-              (forward-char 1))))
+      (textile-inline-newline)
       ; insert more inline tests here
       )))
+
+(defun textile-process-list-block ()
+  (save-excursion
+    (save-restriction
+      (narrow-to-region (point)
+                        (save-excursion
+                          (textile-end-of-paragraph)
+                          (point)))
+      (textile-inline-li)
+      ; insert more inline tests here
+      )))
+
+(defun textile-inline-newline ()
+  (if textile-br-all-newlines
+      (save-excursion
+        (while (re-search-forward "\n" nil t)
+          (replace-match "<br />\\&")))))
+
+(defun textile-inline-li ()
+  (if textile-br-all-newlines
+      (save-excursion
+        (while (re-search-forward "\n[^*#]" nil t)
+          (replace-match "<br \>\\&"))))
+  (save-excursion
+    (while (re-search-forward "\n[*#] +" nil t)
+      (replace-match "<\li>\n<li>"))))
+
+(defun textile-block-ol (style class id lang)
+  (delete-region (point)
+                 (re-search-forward "# +" nil t))
+  (insert "<ol>\n<li>")
+  (textile-process-list-block)
+  (textile-end-of-paragraph)
+  (insert "</li>\n</ol>")
+  (textile-next-paragraph))
+
+(defun textile-block-ul (style class id lang)
+  (delete-region (point)
+                 (re-search-forward "\\* +" nil t))
+  (insert "<ul>\n<li>")
+  (textile-process-list-block)
+  (textile-end-of-paragraph)
+  (insert "</li>\n</ul>")
+  (textile-next-paragraph))
 
 (defun textile-block-p (extended style class id lang)
   (if extended
