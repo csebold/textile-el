@@ -24,8 +24,6 @@
 (defvar textile-block-tag-regexp-start "^\\(")
 (defvar textile-block-any-tag-regexp "[a-z0-9]+")
 (defvar textile-block-tag-regexp-end "\\)\\(.*?\\)\\(\\.\\{1,2\\}\\) ")
-; FIXME - something is keeping (match-string 2) from matching the
-; attributes
 
 (defvar textile-block-tag-regexp
   (concat textile-block-tag-regexp-start
@@ -54,10 +52,10 @@
             (let* ((tag (match-string 1))
                    (attributes (textile-attributes (match-string 2)))
                    (extended (string= (match-string 3) ".."))
-                   (style (get attributes 'style))
-                   (class (get attributes 'class))
-                   (id (get attributes 'id))
-                   (lang (get attributes 'lang))
+                   (style (plist-get attributes 'style))
+                   (class (plist-get attributes 'class))
+                   (id (plist-get attributes 'id))
+                   (lang (plist-get attributes 'lang))
                    (my-function
                     (car (read-from-string (concat "textile-block-" tag)))))
               (if (fboundp my-function)
@@ -67,55 +65,67 @@
   (widen))
 
 (defun textile-attributes (attrib-string)
-  (let ((my-plist t)
-        (style nil)
+  (let ((my-plist '())
+        (style "")
         (class nil)
         (id nil)
-        (lang nil))
-    ; FIXME - actually put something here rather than nil
-    (message "Attrib string is %s." attrib-string)
+        (lang nil)
+        (left-pad 0)
+        (right-pad 0))
     (with-temp-buffer
       (insert attrib-string)
       (beginning-of-buffer)
       (while
-          (progn
-            ; FIXME - filters (yikes), padding, alignment
-            (let ((this-char (char-after)))
-              (cond
-               ((looking-at "{\\(.*?\\)}")
-                (setq style (match-string 1))
-                (re-search-forward "}" nil t))
-               ((looking-at "\\[\\(.*?\\)\\]")
-                (setq lang (match-string 1))
-                (re-search-forward "\\]" nil t))
-               ((looking-at "(\\([^)]+\\))")
-                (let ((this-attrib (split-string (match-string 1) "#")))
-                  (setq class (car this-attrib))
-                  (setq id (cadr this-attrib)))
-                (re-search-forward ")" nil t))
-;;                ((equal this-char ?\))
-;;                 (forward-char 1)) ; right padding
-;;                ((equal this-char ?\>)
-;;                 (forward-char 1)) ; right-justify
-;;                ((equal this-char ?\<)
-;;                 (forward-char 1)) ; left-justify or full
-;;                ((equal this-char ?\=)
-;;                 (forward-char 1)) ; centered
+          (let ((this-char (char-after)))
+            (cond
+             ((looking-at "{\\([^}]*\\)}")
+              (setq style (concat style (match-string 1) "; "))
+              (re-search-forward "}" nil t))
+             ((looking-at "\\[\\(.*?\\)\\]")
+              (setq lang (match-string 1))
+              (re-search-forward "\\]" nil t))
+             ((looking-at "(\\([^)(]+\\))")
+              (let ((this-attrib (split-string (match-string 1) "#")))
+                (setq class (car this-attrib))
+                (setq id (cadr this-attrib)))
+              (re-search-forward ")" nil t))
+             ((equal this-char ?\()
+              (setq left-pad (1+ left-pad))
+              (forward-char 1))
+             ((equal this-char ?\))
+              (setq right-pad (1+ right-pad))
+              (forward-char 1))
+             ((equal this-char ?\>)
+              (setq style (concat style "text-align: right; "))
+              (forward-char 1))
+             ((looking-at "<>")
+              (setq style (concat style "text-align: justify; "))
+              (forward-char 2))
+             ((equal this-char ?\<)
+              (setq style (concat style "text-align: left; "))
+              (forward-char 1))
+             ((equal this-char ?\=)
+              (setq style (concat style "text-align: center; "))
+              (forward-char 1))
 ;;                ((equal this-char ?\|)
 ;;                 (forward-char 1)) ; filters - FIXME
-               (t (forward-char 1))))
+             (t (forward-char 1)))
             (not (eobp)))))
-    (if (string= class "")
-        (setq class nil))
-    (if (string= id "")
-        (setq id nil))
-    (message "Style=%s, class=%s, id=%s, lang=%s"
-             style class id lang)
-    (put 'my-plist 'style style)
-    (put 'my-plist 'class class)
-    (put 'my-plist 'id id)
-    (put 'my-plist 'lang lang)
-    my-plist))
+    (if (> left-pad 0)
+        (setq style (concat style "padding-left: "
+                            (format "%d" left-pad) "em; ")))
+    (if (> right-pad 0)
+        (setq style (concat style "padding-right: "
+                            (format "%d" right-pad) "em; ")))
+    (dolist (this-variable '('style 'class 'id 'lang))
+      (if (string= (eval this-variable) "")
+          (setq (eval this-variable) nil)))
+    (plist-put 'my-plist 'style style)
+    (plist-put 'my-plist 'class class)
+    (plist-put 'my-plist 'id id)
+    (plist-put 'my-plist 'lang lang)
+    (message "Plist is %s." my-plist)
+    (symbol-plist my-plist)))
 
 (defun textile-block-p (extended style class id lang)
   (if extended
