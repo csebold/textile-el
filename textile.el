@@ -282,14 +282,19 @@ like that).")
        )
     ; turn my-string into a list of strings
       (setq Textile-escapes nil)
+      (setq Textile-tags nil)
       (setq my-list (mapcar 'textile-encode-escapes my-list))
+      (setq my-list (mapcar 'textile-encode-tags my-list))
+      ; character-replacement processing
       (setq my-list (mapcar 'textile-process-quotes my-list))
+      (setq my-list (mapcar 'textile-process-macros my-list))
+      ; tag-handling processing
+      (setq my-list (mapcar 'textile-process-inline my-list))
+      (setq my-list (mapcar 'textile-decode-tags my-list))
       (setq my-list (mapcar 'textile-process-image my-list))
       (setq my-list (mapcar 'textile-process-footnote my-list))
       (setq my-list (mapcar 'textile-process-acronym my-list))
       (setq my-list (mapcar 'textile-process-link my-list))
-      (setq my-list (mapcar 'textile-process-macros my-list))
-      (setq my-list (mapcar 'textile-process-inline my-list))
       (setq my-list (mapcar 'textile-process-ampersand my-list))
     ; from this point on there will be no more converting ampersands
     ; to &amp;
@@ -393,6 +398,77 @@ like that).")
                                        'title (match-string 3 my-string))
                           'nil) 'textile-tag "acronym"))))
       my-string)))
+
+(defun textile-encode-tags (my-string)
+  "Tokenize links, images, footnotes, and acronyms."
+  (textile-skip-tags
+   'textile-encode-tags
+   my-string
+    ; links
+   (while (string-match
+           "\\(\"[^\"]*?\":[^ ]*?\\)\\([,.;:\"']?\\(?: \\|$\\)\\)"
+           my-string)
+     (push (match-string 1 my-string) Textile-tags)
+     (setq my-string
+           (replace-match
+            (format "emacs_textile_tag_token_%0d_x\\2"
+                    (safe-length Textile-tags))
+            nil nil my-string)))
+    ; images
+   (while (string-match
+           "\\(!\\([^!]+?\\) *\\((\\(.*?\\))\\)?!\\)\\(:\\([^ ]*?\\)\\([,.;:]?\\(?: \\|$\\)\\)\\)?"
+           my-string)
+     (if (match-string 5 my-string)
+         (progn
+           (push (concat (match-string 1 my-string)
+                         ":"
+                         (match-string 6 my-string)) Textile-tags)
+           (setq my-string
+                 (replace-match
+                  (format "emacs_textile_tag_token_%0d_x\\7"
+                          (safe-length Textile-tags))
+                  nil nil my-string)))
+       (push (match-string 1 my-string) Textile-tags)
+       (setq my-string
+             (replace-match
+              (format "emacs_textile_tag_token_%0d_x"
+                      (safe-length Textile-tags))
+              nil nil my-string))))
+    ; footnotes
+   (while (string-match "\\[\\([0-9]+\\)\\]" my-string)
+     (push (match-string 0 my-string) Textile-tags)
+     (setq my-string
+           (replace-match
+            (format "emacs_textile_tag_token_%0d_x"
+                    (safe-length Textile-tags))
+            nil nil my-string)))
+    ; acronyms - may not be necessary
+;;     (let ((temp case-fold-search))
+;;       (setq case-fold-search nil)
+;;       (while (string-match
+;;               "\\<\\([A-Z]\\{3,\\}\\)\\((\\(.*?\\))\\|\\)" my-string)
+;;         (push (match-string 0 my-string) Textile-tags)
+;;         (setq my-string
+;;               (replace-match
+;;                (format "emacs_textile_tag_token_%0d_x"
+;;                        (safe-length Textile-tags))
+;;                nil nil my-string)))
+;;       (setq case-fold-search temp))
+   my-string))
+      
+
+(defun textile-decode-tags (my-string)
+  "Find tokens and replace them with their original contents."
+  (textile-skip-tags
+   'textile-decode-tags
+   my-string
+   (while (string-match "emacs_textile_tag_token_\\([0-9]+\\)_x" my-string)
+     (setq my-string
+           (replace-match
+            (nth (- (safe-length Textile-tags)
+                    (string-to-number (match-string 1 my-string)))
+                 Textile-tags) nil nil my-string)))
+   my-string))
 
 (defun textile-encode-escapes (my-string)
   "Tokenize escaped strings and store the tokens in Textile-escapes."
