@@ -332,6 +332,9 @@ like that).")
      ; break it up for inline tags
        )
     ; turn my-string into a list of strings
+      (dolist (var '(Textile-escapes Textile-tags Textile-manual))
+        (if (not (boundp var))
+            (set var nil)))
       (let ((old-values (list Textile-escapes Textile-tags Textile-manual)))
         (setq Textile-escapes nil)
         (setq Textile-tags nil)
@@ -1162,30 +1165,6 @@ or STOP-REGEXP."
           (cadr tag-list)
         (textile-generate-inline-tag tag (cddr tag-list)))
     nil))
-
-(defun textile-inline-entities ()
-  "Handle HTML entity conversion inline.
-Call this function to handle converting all characters that
-should be escaped to their (X)HTML entity versions."
-  (save-excursion
-    (while (re-search-forward "&" nil t)
-      (replace-match "&amp;")))
-  (save-excursion
-    (while (re-search-forward "<" nil t)
-      (replace-match "&lt;")))
-  (save-excursion
-    (while (re-search-forward ">" nil t)
-      (replace-match "&gt;"))))
-
-(defun textile-inline-newline ()
-  "Handle single newlines according to textile-br-all-newlines.
-If textile-br-all-newlines is t (the default), then do what the
-original Textile does and convert newlines that don't break
-paragraphs into <br> tags."
-  (if textile-br-all-newlines
-      (save-excursion
-        (while (re-search-forward "\n" nil t)
-          (replace-match "<br />\\&")))))
 
 (defun textile-block-clear (my-string)
   "Pass a \"clear:left|right|both\" style to the next block.
