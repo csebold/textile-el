@@ -49,3 +49,11 @@ fn1. This is my first footnote.
 fn42. This is my forty-second.
 
 p=. Written by Charles Sebold
+
+==
+<!--
+Local Variables:
+mode: auto-fill
+End:
+-->
+==
