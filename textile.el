@@ -97,7 +97,7 @@ determining where an extended block ends.")
 (defvar textile-inline-tag-regexp
   (concat
    "\\(?:^\\|\\W\\)\\("
-   "==\\|[_]\\{1,2\\}\\|[+]\\{1,2\\}\\|[-]\\{1,2\\}\\|[~^%@]"
+   "[_]\\{1,2\\}\\|[+]\\{1,2\\}\\|[-]\\{1,2\\}\\|[~^%@]"
    "\\|\\?\\?\\|[*]\\{1,2\\}"
    "\\)\\([^\000]+?\\)\\(\\1\\)\\(?:\\W\\|$\\)")
   "Should match any inline tag.")
@@ -117,10 +117,10 @@ a list whose car is the title and cadr is the URL.")
     "\\(^\\| \\)--\\( \\|$\\)" "\\1&#8212;\\2" "<-" "&#8592;"
     "\\(^\\| \\)-\\( \\|$\\)" "\\1&#8211;\\2" "\\.\\.\\." "&#8230;"
     ; following this is the beginning attempt at quote education
-    "\\(\\w\\)'\\(\\w\\)" "\\1&#8217;\\2"
-    "'\\([0-9]\\{2\\}s\\)" "&#8217;\\1"
-    "^\"\\|\"\\b" "&#8220;" "\\b\"\\|\"$" "&#8221;"
-    "^'\\|'\\b" "&#8216;" "\\b'\\|'$" "&#8217;")
+    "\\(\\w\\)'\\(\\w\\)" "\\1&#8217;\\2" ; word-apostrophe-s
+    "'\\([0-9]\\{2\\}s\\)" "&#8217;\\1" ; decades like the '80s
+    "\\`\"\\|\"\\b" "&#8220;" "\\b\"\\|\"\n\\|\"\\'" "&#8221;"
+    "\\`'\\|'\\b" "&#8216;" "\\b'\\|'\n\\|'\\'" "&#8217;")
   "Code to be automatically converted to HTML entities or other things.")
 
 (defvar textile-error-break nil
@@ -271,6 +271,8 @@ like that).")
      ; break it up for inline tags
        )
     ; turn my-string into a list of strings
+      (setq Textile-escapes nil)
+      (setq my-list (mapcar 'textile-encode-escapes my-list))
       (setq my-list (mapcar 'textile-process-image my-list))
       (setq my-list (mapcar 'textile-process-footnote my-list))
       (setq my-list (mapcar 'textile-process-acronym my-list))
@@ -282,6 +284,7 @@ like that).")
     ; to &amp;
       (setq my-list (mapcar 'textile-process-newline my-list))
       (setq my-list (mapcar 'textile-process-non-ascii my-list))
+      (setq my-list (mapcar 'textile-decode-escapes my-list))
       (append my-list (list my-plist)))))
 
 (defmacro textile-skip-tags (my-function my-string &rest body)
@@ -380,21 +383,38 @@ like that).")
                           'nil) 'textile-tag "acronym"))))
       my-string)))
 
+(defun textile-encode-escapes (my-string)
+  "Tokenize escaped strings and store the tokens in Textile-escapes."
+  (textile-skip-tags
+   'textile-encode-escapes
+   my-string
+   (while (string-match
+           "\\(^\\|\\W\\)\\(==\\([^\000]+?\\)==\\)\\(\\W\\|\\$\\)"
+           my-string)
+     (push (match-string 3 my-string) Textile-escapes)
+     (setq my-string
+           (replace-match
+            (format "\\1emacs_textile_token_%0d_x\\4"
+                    (safe-length Textile-escapes))
+            nil nil my-string)))
+   my-string))
+
+(defun textile-decode-escapes (my-string)
+  "Find tokens and replace them with escaped strings."
+  (textile-skip-tags
+   'textile-decode-escapes
+   my-string
+   (while (string-match "emacs_textile_token_\\([0-9]+\\)_x" my-string)
+     (setq my-string
+           (replace-match
+            (nth (- (safe-length Textile-escapes)
+                    (string-to-number (match-string 1 my-string)))
+                 Textile-escapes) nil nil my-string)))
+   my-string))
+
 (defun textile-process-inline (my-string)
   "Process all of the usual inline tags in a given string or list of strings."
   (textile-skip-tags 'textile-process-inline my-string
-    (if (string-match
-         "\\(?:^\\|\\W\\)\\(==\\)\\([^\000]+?\\)\\(\\1\\)\\(?:\\W\\|\\$\\)"
-         my-string)
-        (list (save-match-data
-                (textile-process-inline (substring my-string 0
-                                                   (match-beginning 1))))
-              (match-string 2 my-string)
-              (save-match-data
-                (textile-process-inline (substring my-string
-                                                   (match-end 3))))
-              (plist-put nil 'textile-tag nil))
-;      (setq my-string (textile-process-macros my-string))
       (if (string-match textile-inline-tag-regexp my-string)
           (if (not (equal (match-beginning 0) 0))
               (list (textile-remove-braces
@@ -427,14 +447,12 @@ like that).")
                             (match-string 2 my-string)
                             (length (plist-get attributes
                                                'textile-attrib-string)))))
-                (if (string= (match-string 1 my-string) "==")
-                    (match-string 2 my-string)
-                  (if (string= (match-string 1 my-string) "@")
-                      (list (textile-process-code text)
-                            attributes)
-                    (list (textile-process-inline text)
-                          attributes))))))
-        my-string))))
+                (if (string= (match-string 1 my-string) "@")
+                    (list (textile-process-code text)
+                          attributes)
+                  (list (textile-process-inline text)
+                        attributes)))))
+        my-string)))
 
 (defun textile-remove-braces (my-string)
   "Remove inappropriate braces from the beginning or end of a string."
