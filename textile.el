@@ -68,6 +68,14 @@
 ; reports to textile-bug@livingtorah.org, preferably along with sample
 ; text and some description of what you expected to see.
 
+; Bugs from BC's test cases which I wasn't sure how to annotate yet:
+
+;; FIXME: testcases.txt, line 635, not sure I agree with title handling
+;; FIXME: testcases.txt, line 645, doubled the "caps" span, oops
+;; FIXME: testcases.txt, line 665, BC skips groups of asterisks greater
+;;                                 than two
+;; FIXME: testcases.txt, stopped reading the test results after line 665
+
 (defvar textile-version "Textile.el v0.99.0"
   "Version number for textile.el.")
 
@@ -252,6 +260,8 @@ If ARG, insert string at point."
     (setq textile-alias-list textile-alias-list-defaults)
     (setq textile-macros-list textile-macros-list-defaults)
     (prog1
+        ; FIXME - blockcode-blocks doesn't accurately preserve
+        ; vertical space, may have to juggle this severely
         (let ((blocks (textile-blockcode-blocks
                        (textile-escape-blocks (textile-split-string
                                                (textile-manual-pre
@@ -383,6 +393,10 @@ If ARG, insert string at point."
                     (textile-attributes " " (match-string 2 my-string)
                                         'table-outer-tag)
                   (textile-attributes " " (match-string 2 my-string))))
+               ; FIXME - apparently BC allows for multi-line style
+               ; assignment, meaning you can have newline chars within
+               ; attribute strings... no idea what I'm going to do with
+               ; that...
                (extended (string= (match-string 3 my-string) ".."))
                (my-function
                 (car (read-from-string (concat "textile-block-" tag)))))
@@ -545,6 +559,8 @@ If ARG, insert string at point."
     (textile-skip-tags
      'textile-process-acronym
      my-string
+     ; FIXME - BC allows some punctuation in caps spans:
+     ; testcases.txt, line 595
      (if (string-match
           "\\<\\([A-Z]\\{3,\\}\\|[0-9][A-Z]\\{2,\\}\\|[A-Z][0-9A-Z]\\{2,\\}\\)\\((\\(.*?\\))\\|\\)"
           my-string)
@@ -598,7 +614,7 @@ If ARG, insert string at point."
             (replace-match
              (nth (- (safe-length Textile-manual)
                      (string-to-number (match-string 1 my-string)))
-                  Textile-manual) nil nil my-string)))
+                  Textile-manual) nil t my-string)))
     my-string))
 
 (defun textile-encode-tags (my-string)
@@ -656,7 +672,7 @@ If ARG, insert string at point."
            (replace-match
             (nth (- (safe-length Textile-tags)
                     (string-to-number (match-string 1 my-string)))
-                 Textile-tags) nil nil my-string)))
+                 Textile-tags) nil t my-string)))
    my-string))
 
 (defun textile-encode-escapes (my-string)
@@ -685,7 +701,7 @@ If ARG, insert string at point."
             (replace-match
              (nth (- (safe-length Textile-escapes)
                      (string-to-number (match-string 1 my-string)))
-                  Textile-escapes) nil nil my-string)))
+                  Textile-escapes) nil t my-string)))
     my-string))
 
 (defun textile-process-inline (my-string)
@@ -740,9 +756,10 @@ If ARG, insert string at point."
        my-string
        (if (string= (substring my-string 0 1) "]")
            (setq my-string (substring my-string 1)))
-       (if (string= (substring my-string
-                               (- (length my-string) 1)
-                               (length my-string)) "[")
+       (if (and (not (string= my-string ""))
+                (string= (substring my-string
+                                    (- (length my-string) 1)
+                                    (length my-string)) "["))
            (setq my-string (substring my-string 0 (- (length my-string) 1))))
        my-string))))
 
@@ -987,6 +1004,7 @@ If ARG, insert string at point."
 
 (defun textile-unextend-blocks (my-list)
   "In a list of textile trees, pull extended blocks together."
+  ; FIXME - this doesn't seem to pass testcases.txt line 285
   (let ((new-list nil))
     (while my-list
       (let* ((this-item (car my-list))
@@ -1136,7 +1154,12 @@ or STOP-REGEXP."
              (re-search-forward "\\]" nil t))
             ((looking-at "(\\([^) (]+\\))")
              (let ((this-attrib (textile-split-string (match-string 1) "#")))
+               ; FIXME - because split-string doesn't return empty strings
+               ; anymore, we aren't checking for IDs without classes
+               ; properly
                (setq class (car this-attrib))
+               ; FIXME - BC allows multiple classes by stringing them
+               ; together delimited by spaces.  Is that valid?
                (setq id (cadr this-attrib)))
              (re-search-forward ")" nil t))
             ((looking-at "(.* .*)")
@@ -1152,22 +1175,26 @@ or STOP-REGEXP."
              (forward-char 1))
             ((and (not (memq 'inline context))
                   (equal this-char ?\>))
+             ; FIXME - BC adds a class of "right" to text aligned right
              (if (memq 'table context)
                  (setq align "right")
                (setq style (concat style "text-align: right; ")))
              (forward-char 1))
             ((and (not (memq 'inline context))
                   (looking-at "<>"))
+             ; FIXME - BC adds a class of "justify" to text aligned justify
              (setq style (concat style "text-align: justify; "))
              (forward-char 2))
             ((and (not (memq 'inline context))
                   (equal this-char ?\<))
+             ; FIXME - BC adds a class of "left" to text aligned left
              (if (memq 'table context)
                  (setq align "left")
                (setq style (concat style "text-align: left; ")))
              (forward-char 1))
             ((and (not (memq 'inline context))
                   (equal this-char ?\=))
+             ; FIXME - BC adds a class of "center" to text aligned center
              (cond
               ((memq 'table context)
                (setq align "center"))
@@ -1541,6 +1568,8 @@ HTML-formatted this table."
   (when (plist-get attributes 'textile-extended)
     (textile-error "Extended <table> block doesn't make sense.")
     (setq attributes (plist-put attributes 'textile-extended nil)))
+  ; FIXME - BC tables make note of alignment attributes applied to
+  ; header lines and then apply those to everything in that row.
   (setq attributes (plist-put attributes 'textile-tag "table"))
   (let ((my-row-list (textile-split-string my-string " *| *\\(?:\n\\|$\\)")))
     (append
