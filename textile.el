@@ -403,7 +403,7 @@ HTML-formatted this definition list."
 Finish at the beginning of the next paragraph, having completely
 HTML-formatted this ordered list."
   (delete-region (point)
-                 (re-search-forward "# *" nil t))
+                 (re-search-forward "#" nil t))
   (textile-block-start-tag-insert "ol" style class id lang)
   (insert "\n")
   (let ((attributes (textile-attributes)))
@@ -424,7 +424,7 @@ HTML-formatted this ordered list."
 Finish at the beginning of the next paragraph, having completely
 HTML-formatted this unordered list."
   (delete-region (point)
-                 (re-search-forward "\\* *" nil t))
+                 (re-search-forward "\\*" nil t))
   (textile-block-start-tag-insert "ul" style class id lang)
   (insert "\n")
   (let ((attributes (textile-attributes)))
