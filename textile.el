@@ -8,7 +8,7 @@
       (beginning-of-buffer)
       (while (not (equal (point)
                          (save-excursion
-                           (forward-paragraph 1)
+                           (end-of-buffer)
                            (point))))
         (let ((this-block-type "p")
               (this-block-tag "p")
@@ -18,8 +18,7 @@
           (narrow-to-region (point)
                             (save-excursion
                               (forward-paragraph 1)
-                              (if (looking-at "\n")
-                                  (backward-char 1))
+                              (re-search-forward "\n\n" nil t)
                               (point)))
           (beginning-of-buffer)
           (while (looking-at "\n")
@@ -37,6 +36,7 @@
                           (setq this-block-class "footnote")
                           (setq this-block-id this-block-type)
                           "p"))
+                       ((string= this-block-type "bc") "pre")
                        (t nil)))
                 (if this-block-tag
                     (delete-region (point)
@@ -57,9 +57,12 @@
                           (if (not (string= this-block-style ""))
                               (concat " style=\"" this-block-style
                                       "\"" ))
-                          ">"))
+                          ">"
+                          (if (string= this-block-type "bc")
+                              "<code>")))
           (end-of-buffer)
-          (insert (concat "</" this-block-tag ">"))
+          (insert (concat (if (string= this-block-type "bc")
+                              "</code>") "</" this-block-tag ">"))
           (widen)
           (forward-paragraph 1)))
       (buffer-string))))
