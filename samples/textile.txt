@@ -24,6 +24,12 @@ h1. This is a first-level header.
 which starts with no list item tag
 * and yet finishes with one?
 
+h2. Textile lisp evaluation:
+
+This is #[((textile-version))]# running on #[((car (textile-split-string (emacs-version) "\n")))]# if you were curious.
+
+What about @#[((textile-version))]@@#@?
+
 h2. Textile smart quotes tests:
 
 ""This is a link.":http://www.livingtorah.org"
