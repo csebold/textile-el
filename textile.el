@@ -533,18 +533,6 @@ like that).")
             (format "emacs_textile_tag_token_%0d_x"
                     (safe-length Textile-tags))
             nil nil my-string)))
-    ; acronyms - may not be necessary
-;;     (let ((temp case-fold-search))
-;;       (setq case-fold-search nil)
-;;       (while (string-match
-;;               "\\<\\([A-Z]\\{3,\\}\\)\\((\\(.*?\\))\\|\\)" my-string)
-;;         (push (match-string 0 my-string) Textile-tags)
-;;         (setq my-string
-;;               (replace-match
-;;                (format "emacs_textile_tag_token_%0d_x"
-;;                        (safe-length Textile-tags))
-;;                nil nil my-string)))
-;;       (setq case-fold-search temp))
    my-string))
 
 (defun textile-decode-tags (my-string)
@@ -591,7 +579,11 @@ like that).")
 
 (defun textile-process-inline (my-string)
   "Process all of the usual inline tags in a given string or list of strings."
-  (textile-skip-tags 'textile-process-inline my-string
+;  (textile-skip-tags 'textile-process-inline my-string
+  (if (listp my-string)
+      (if (member 'textile-tag my-string)
+          my-string
+        (mapcar 'textile-process-inline my-string))
       (if (string-match textile-inline-tag-regexp my-string)
           (if (not (equal (match-beginning 0) 0))
               (list (textile-remove-braces
@@ -906,6 +898,8 @@ like that).")
     (setq my-string (replace-match "</tr>\n\\1" nil nil my-string)))
   (while (string-match "</p><p" my-string)
     (setq my-string (replace-match "</p>\n\n<p" nil nil my-string)))
+  (while (string-match "\\(.\\)<\\(ul\\|ol\\)" my-string)
+    (setq my-string (replace-match "\\1\n<\\2" nil nil my-string)))
   (while (string-match "<\\(/li\\|/?ol\\|/?ul\\)>\\(.\\)" my-string)
     (setq my-string (replace-match "<\\1>\n\\2" nil nil my-string)))
   (while (string-match "\\(.\\)\\(<li[ >]\\)" my-string)
@@ -1257,11 +1251,54 @@ HTML-formatted this definition list."
                   (my-list (textile-split-string my-string "\n")))
               (setq my-list (textile-unsplit-list-newlines my-list))
               (setq my-list (textile-organize-lists my-start-level my-list))
-              (textile-process-li my-list)))
+              (textile-nest-lists (textile-process-li my-list))))
       (list (textile-inline-to-list my-string)
             (plist-put
              (plist-put nil 'textile-tag "p")
              'textile-explicit nil)))))
+
+(defun textile-nest-lists (my-list)
+  "Nest lists in a way that will produce valid HTML."
+  (let ((new-list nil))
+    (if (and (listp my-list)
+             (= (length my-list) 1))
+        (list (textile-nest-lists (car my-list)))
+      (dotimes (i (safe-length my-list))
+        (let ((this-item (nth i my-list))
+              (next-item (if (< i (- (safe-length my-list) 2))
+                             (nth (+ i 1) my-list)
+                           nil)))
+          (if (and (listp this-item) (member 'textile-tag this-item))
+              (push this-item new-list)
+            (if (not (eq this-item 'dont-push))
+                (progn
+                  (if (and (textile-get-attributes this-item)
+                           (string=
+                            (plist-get (textile-get-attributes this-item)
+                                       'textile-tag)
+                            "li")
+                           (textile-get-attributes next-item)
+                           (or
+                            (string=
+                             (plist-get (textile-get-attributes next-item)
+                                        'textile-tag)
+                             "ol")
+                            (string=
+                             (plist-get (textile-get-attributes next-item)
+                                        'textile-tag)
+                             "ul")))
+                      (progn
+                        (textile-append-block this-item
+                                              (textile-nest-lists next-item))
+                        (setcar (nthcdr (+ i 1) my-list) 'dont-push)))
+                  (push this-item new-list))))))
+      (reverse new-list))))
+
+(defun textile-get-attributes (my-list)
+  "Return attributes of my-list."
+  (if (member 'textile-tag (car (last my-list)))
+      (car (last my-list))
+    nil))
 
 (defun textile-unsplit-list-newlines (my-list)
   "If any list items don't start with the list tag regexp, join to previous."
