@@ -96,10 +96,10 @@ determining where an extended block ends.")
 
 (defvar textile-inline-tag-regexp
   (concat
-   "\\(?:^\\| \\|[>]\\)\\("
+   "\\(?:^\\|\\W\\)\\("
    "[*]\\{1,2\\}\\|[_]\\{1,2\\}\\|[+]\\{1,2\\}\\|[-]\\{1,2\\}\\|[~^%@]"
    "\\|\\?\\?\\|=="
-   "\\)\\(.*?\\)\\(\\1\\)\\(?: \\|[<]\\|$\\)")
+   "\\)\\(.*?\\)\\(\\1\\)\\(?:\\W\\|$\\)")
   "Should match any inline tag.")
 
 (defvar textile-inline-tag-list
@@ -268,6 +268,11 @@ like that).")
       (setq my-list (mapcar 'textile-process-non-ascii my-list))
       (append my-list (list my-plist)))))
 
+(defun textile-process-code (my-string)
+  "Process necessary things in <code> fragments."
+  ; need to do this: FIXME
+  my-string)
+
 (defun textile-process-acronym (my-string)
   "Process all acronyms in a given string or list of strings."
   (if (listp my-string)
@@ -318,16 +323,25 @@ like that).")
                       (textile-process-inline (substring my-string
                                                          (match-end 3))))
                     (plist-put nil 'textile-tag nil))
-            (let ((attributes (plist-put
-                               (save-match-data
-                                 (textile-attributes " " my-string))
-                               'textile-tag  (textile-generate-inline-tag
-                                              (match-string 1 my-string)
-                                              textile-inline-tag-list))))
+            (let* ((attributes (plist-put
+                                (save-match-data
+                                  (textile-attributes "[^})]]"
+                                                      (match-string
+                                                       2 my-string)))
+                                'textile-tag  (textile-generate-inline-tag
+                                               (match-string 1 my-string)
+                                               textile-inline-tag-list)))
+                   (text (substring
+                          (match-string 2 my-string)
+                          (length (plist-get attributes
+                                             'textile-attrib-string)))))
               (if (string= (match-string 1 my-string) "==")
                   (match-string 2 my-string)
-                (list (textile-process-inline (match-string 2 my-string))
-                      attributes)))))
+                (if (string= (match-string 1 my-string) "@")
+                    (list (textile-process-code text)
+                          attributes)
+                  (list (textile-process-inline text)
+                        attributes))))))
       my-string)))
 
 (defun textile-process-footnote (my-string)
