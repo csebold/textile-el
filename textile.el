@@ -204,7 +204,9 @@ like that).")
                                         ; test for block tags
        ((string-match "^clear[<>]?\\. *$" my-string)
         (setq my-string (textile-block-clear my-string)))
-       ((string-match "^.*?|.*| *$" my-string)
+       ((and
+         (string-match "^.*?|.*| *$" my-string)
+         (not (string-match "^table" my-string)))
         (textile-block-table my-string nil))
        ((string-match textile-block-tag-regexp my-string)
         (let* ((tag (match-string 1 my-string))
