@@ -280,18 +280,21 @@ If ARG, insert string at point."
     (prog1
         (let ((new-list nil))
           (with-temp-buffer
-            (insert my-string)
+            (insert (textile-manual-pre
+                     (textile-process-elisp
+                      (textile-process-aliases my-string))))
             (while (not (equal (point-min) (point-max)))
               (goto-char (point-min))
               (cond
                ((looking-at "^==>? *\n")
-                (replace-match "")
+                (forward-char 2)
                 (if (string-match ">" (match-string 0))
                 ; what is the end delimiter for ==>?  Not sure yet, FIXME
                     (if (not (re-search-forward "^-\\{3,\\} *\n" nil t))
                         (re-search-forward "\n\n" nil t))
-                  (if (not (re-search-forward "^== *\\(\n\n\\)?" nil t))
-                      (goto-char (point-max))))
+                  (if (not (re-search-forward "^\\(== *\\)\\(\n\n\\)?" nil t))
+                      (goto-char (point-max))
+                    (replace-match "\\1")))
                 (push (buffer-substring (point-min) (point)) new-list)
                 (delete-region (point-min) (point)))
                ((looking-at (textile-this-block-tag-regexp "bc"))
@@ -304,7 +307,7 @@ If ARG, insert string at point."
                              (throw 'found-next-block (point))))
                          (point))))
                   (push (buffer-substring (point-min) end-of-block) new-list)
-                  (delete-region (point-min end-of-block))))
+                  (delete-region (point-min) end-of-block)))
                (t
                 (if (re-search-forward "\n\n" nil t)
                     (progn
@@ -443,6 +446,10 @@ If ARG, insert string at point."
     (let ((my-plist (plist-put nil 'textile-explicit t)))
       (cond
        ; test for block tags
+       ((string-match "^==>? *\n" my-string)
+        (textile-block-escape my-string))
+       ((string-match (textile-this-block-tag-regexp "bc") my-string)
+        (textile-block-blockcode my-string))
        ((string-match "^clear[<>]?\\. *$" my-string)
         (setq my-string (textile-block-clear my-string)))
        ((and
@@ -1053,8 +1060,7 @@ If ARG, insert string at point."
 (defun textile-list-to-blocks (my-list)
   "Convert list of textile trees to XHTML string."
   (textile-final-XHTML-tidy
-   (mapconcat 'textile-compile-string
-              (textile-unextend-blocks my-list) "\n\n")))
+   (mapconcat 'textile-compile-string my-list "\n\n")))
 
 (defun textile-append-block (my-list block)
   "Insert BLOCK into MY-LIST as the second-to-last item, and return MY-LIST."
