@@ -468,9 +468,6 @@ If ARG, insert string at point."
               (list 'mapcar my-function my-string))
         (cons 'progn body)))
 
-; FIXME - add textile-save-token-data macro to replace all the
-; Textile-escapes etc. saving
-
 ; add edebug instrumentation for lisp macro(s)
 (add-hook 'edebug-setup-hook
           (function (lambda ()
@@ -1153,14 +1150,14 @@ or STOP-REGEXP."
              (setq lang (match-string 1))
              (re-search-forward "\\]" nil t))
             ((looking-at "(\\([^) (]+\\))")
-             (let ((this-attrib (textile-split-string (match-string 1) "#")))
-               ; FIXME - because split-string doesn't return empty strings
-               ; anymore, we aren't checking for IDs without classes
-               ; properly
-               (setq class (car this-attrib))
-               ; FIXME - BC allows multiple classes by stringing them
-               ; together delimited by spaces.  Is that valid?
-               (setq id (cadr this-attrib)))
+             (let ((this-attrib (save-match-data
+                                  (textile-split-string
+                                   (match-string 1) "#"))))
+               (if (and (string-match "#" (match-string 1))
+                        (= (match-beginning 0) 0))
+                   (setq id (car this-attrib))
+                 (push (car this-attrib) class)
+                 (setq id (cadr this-attrib))))
              (re-search-forward ")" nil t))
             ((looking-at "(.* .*)")
              ; parenthetical statement including a space
@@ -1175,33 +1172,34 @@ or STOP-REGEXP."
              (forward-char 1))
             ((and (not (memq 'inline context))
                   (equal this-char ?\>))
-             ; FIXME - BC adds a class of "right" to text aligned right
              (if (memq 'table context)
                  (setq align "right")
+               (push "right" class)
                (setq style (concat style "text-align: right; ")))
              (forward-char 1))
             ((and (not (memq 'inline context))
                   (looking-at "<>"))
-             ; FIXME - BC adds a class of "justify" to text aligned justify
+             (push "justify" class)
              (setq style (concat style "text-align: justify; "))
              (forward-char 2))
             ((and (not (memq 'inline context))
                   (equal this-char ?\<))
-             ; FIXME - BC adds a class of "left" to text aligned left
+             (push "left" class)
              (if (memq 'table context)
                  (setq align "left")
                (setq style (concat style "text-align: left; ")))
              (forward-char 1))
             ((and (not (memq 'inline context))
                   (equal this-char ?\=))
-             ; FIXME - BC adds a class of "center" to text aligned center
              (cond
               ((memq 'table context)
                (setq align "center"))
               ((memq 'table-outer-tag context)
                (setq style (concat style
                                    "margin-left: auto; margin-right: auto; ")))
-              (t (setq style (concat style "text-align: center; "))))
+              (t
+               (push "center" class)
+               (setq style (concat style "text-align: center; "))))
              (forward-char 1))
             ((and (memq 'table context)
                   (equal this-char ?^ ))
@@ -1253,6 +1251,7 @@ or STOP-REGEXP."
                 style
                 (string-match "text-align: \\(left\\|right\\); " style))
        (setq style (replace-match "float: \\1; " nil nil style)))
+     (setq class (mapconcat 'identity class " "))
      (dolist (this-variable '(style class id lang align valign
                                     colspan rowspan
                                     textile-header textile-well-formed))
