@@ -143,8 +143,9 @@ like that).")
     (cond
      ; test for block tags
      (t
-      (plist-put my-plist 'tag "p")
-      (plist-put my-plist 'explicit nil)))
+      (setq my-plist (plist-put my-plist 'tag "p"))
+      (setq my-plist (plist-put my-plist 'explicit nil))))
+    (message "My plist is %s" my-plist)
     (list (textile-inline-to-list my-string) my-plist)))
 
 (defun textile-inline-to-list (my-string)
@@ -152,22 +153,31 @@ like that).")
   (let ((my-plist nil))
     (cond
      ; break it up for inline tags
-     (t
-      (plist-put my-plist 'tag nil)
-      (list my-string my-plist)))))
+     )
+    (if my-plist
+        (list my-string my-plist)
+      my-string)))
+
+(defun textile-list-to-blocks (my-list)
+  "Convert list of textile trees to XHTML string."
+  (mapconcat 'textile-compile-string my-list "\n\n"))
 
 (defun textile-compile-string (my-list)
   "Convert textile tree to XHTML string."
-  ; FIXME - this is backwards; it should be loading the plist first,
-  ; then calling recursive part of the function, I think
-  (if (stringp (car my-list))
-      (concat
-       (if (and (cadr my-list) (plist-get (cdr my-list) 'tag))
-           (concat "<" (plist-get (cdr my-list) 'tag) ">" my-string
-                   "</" (plist-get (cdr my-list) 'tag) ">")
-         (car my-list)) "\n\n")
-    (concat (textile-compile-string (car my-list))
-            (textile-compile-string (cdr my-list)))))
+  (if (stringp my-list)
+      my-list
+    (let* ((my-plist (car (last my-list)))
+           (args (reverse (cdr (reverse my-list))))
+           (my-string (mapconcat (function
+                                  (lambda (item)
+                                    (if (stringp item)
+                                        item
+                                      (textile-compile-string item))))
+                                 args "")))
+      (if (listp my-plist)
+          (concat "<" (plist-get my-plist 'tag) ">"
+                my-string "</" (plist-get my-plist 'tag) ">")
+        my-string))))
 
 (defun textile-code-to-blocks (start end)
   "Block process region from START to END.
