@@ -26,38 +26,6 @@
 ; Note - in comments, DA = Dean Allen (original author of PHP Textile),
 ; BC = Brad Choate (implemented Textile v2 in Perl for Movable Type)
 
-; Todo for release 1.0: support all of DA's Textile 1.0 as demonstrated
-; at http://www.textism.com/tools/textile/, as well as some of BC's
-; Textile 2 at http://bradchoate.com/mt/docs/mtmanual_textile2.html.
-; Also include all basic support functions necessary to integrate into
-; normal life, like textile-string, textile-buffer, textile-region, and
-; support generating a separate HTML buffer and leaving the old one
-; intact
-
-; Todo for release 1.5: Texinfo manual.
-
-; Todo for release 2.0: support all of BC's Textile 2.0 as demonstrated
-; at http://bradchoate.com/tools/textile/.  Possibly also built-in
-; support for longlines.el and things like that, so that you can work
-; the way God and RMS intended Emacs to work, but then process Textile
-; the way DA and BC intended for Textile to work.
-
-; Todo for release 2.1: integrate into W3 and other HTML-processing
-; solutions like w3m.el, so that you can view buffers, convert them to
-; plain text, and so forth.  No plans for textile-to-plain-text
-; conversion, that's too much to take on; too many ways to convert HTML
-; to plain text to make that worthwhile.
-
-; Todo for release 2.2: Integrate into Message from Gnus so a person
-; could do that most evil of tasks, compose and send HTML messages
-; straight from a *mail* buffer.
-
-; Todo for release 2.3: (May be sooner if I feel like it sooner) Include
-; a minor mode for composing textile which will do some
-; syntax-highlighting, but don't expect a WYSIWYG textile editor or
-; anything like that.  Maybe we could work this into the compile
-; support... OK, that's too much.
-
 (defvar textile-block-tag-regexp-start "^\\("
   "All textile tag regexps start with this.")
 (defvar textile-block-any-tag-regexp "[a-z0-9]+"
@@ -116,20 +84,21 @@ a list whose car is the title and cadr is the URL.")
 (defvar textile-macros-list-defaults
   '("->" "&#8594;" "(C)" "&#169;" "(R)" "&#174;" "(TM)" "&#8482;"
     "x\\([0-9]\\)" "&#215;\\1" ; 3x3
-    "\\(^\\| \\)--\\( \\|$\\)" "\\1&#8212;\\2" "<-" "&#8592;"
-    "\\(^\\| \\)-\\( \\|$\\)" "\\1&#8211;\\2"
-    "\\.\\( ?\\)\\.\\1\\." "&#8230;")
+    "<-" "&#8592;")
   "Code to be automatically converted to HTML entities or other things.")
 
 (defvar textile-smart-quotes-list
-  '("\\(\\w\\)'\\(\\w\\)" "\\1&#8217;\\2" ; word-apostrophe-letter
+  '("\\(^\\| \\)--\\( \\|$\\)" "\\1&#8212;\\2" ; em-dash
+    "\\(^\\| \\)-\\( \\|$\\)" "\\1&#8211;\\2" ; en-dash
+    "\\.\\( ?\\)\\.\\1\\." "&#8230;" ; ellipsis
+    "\\(\\w\\)'\\(\\w\\)" "\\1&#8217;\\2" ; word-apostrophe-letter
     "\\([^ ]\\)'s" "\\1&#8217;s" ; special case apostrophe-s
     "'\\([0-9]\\{2\\}s\\)" "&#8217;\\1" ; decades like the '80s
     " \"" " &#8220;" ; any double-quote preceded by a space
     " '" " &#8216;" ; any single-quote preceded by a space
     "\"\\( \\|$\\)" "&#8221;\\1" ; any double-quote followed by space
     "'\\( \\|$\\)" "&#8217;\\1" ; any single-quote followed by space
-    "\\([0-9]\\)'\\([0-9]\\)" "\\1&#8217;\\2" ; 5'11 works
+    "\\([0-9]\\)'\\([0-9]\\|&#\\)" "\\1&#8217;\\2" ; 5'11 works
     "\\`\"\\|\"\\b" "&#8220;" "\\b\"\\|\"\n\\|\"\\'" "&#8221;"
     "\\`'\\|'\\b" "&#8216;" "\\b'\\|'\n\\|'\\'" "&#8217;"
     "&#8220;'" "&#8220;&#8216;" "&#8216;\"" "&#8216;&#8220;"
