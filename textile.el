@@ -133,6 +133,7 @@ or STOP-REGEXP."
         (lang nil)
         (left-pad 0)
         (right-pad 0)
+        (align nil)
         (valign nil)
         (rowspan nil)
         (colspan nil)
@@ -171,23 +172,27 @@ or STOP-REGEXP."
             (setq right-pad (1+ right-pad))
             (forward-char 1))
            ((equal this-char ?\>)
-            (setq style (concat style "text-align: right; "))
+            (if (boundp 'Textile-in-table)
+                (setq align "right")
+              (setq style (concat style "text-align: right; ")))
             (forward-char 1))
            ((looking-at "<>")
             (setq style (concat style "text-align: justify; "))
             (forward-char 2))
            ((equal this-char ?\<)
-            (setq style (concat style "text-align: left; "))
+            (if (boundp 'Textile-in-table)
+                (setq align "left")
+              (setq style (concat style "text-align: left; ")))
             (forward-char 1))
            ((equal this-char ?\=)
             (setq style
                   (concat style 
                           ; if this is a table handle this differently
-                          (if (string= stop-regexp "|")
+                          (if (boundp 'Textile-in-table)
                               "margin-left: auto; margin-right: auto; "
                             "text-align: center; ")))
             (forward-char 1))
-           ((equal this-char ?\^ )
+           ((equal this-char ?^ )
             (setq valign "top")
             (forward-char 1))
            ((equal this-char ?\~)
@@ -215,7 +220,8 @@ or STOP-REGEXP."
                 style
                 (string-match "text-align: \\(left\\|right\\); " style))
        (setq style (replace-match "float: \\1; " nil nil style)))
-     (dolist (this-variable '(style class id lang valign colspan rowspan
+     (dolist (this-variable '(style class id lang align valign
+                                    colspan rowspan
                                     textile-header))
        (when (string= (eval this-variable) "")
          (set this-variable nil))
@@ -344,14 +350,14 @@ individual cells and rows as necessary."
       (save-excursion
         (while (re-search-forward "\\([^|] *\\)\n" nil t)
           (replace-match "\\1<br />\n"))))
+  (setq Textile-in-table t)
   (save-excursion
-    ; FIXME - finish table row processing
     (while (not (eobp))
       (let ((row-attributes (textile-attributes "|")))
         (textile-delete-attributes row-attributes)
         (textile-tag-insert "tr" row-attributes)
         (while (not (or (looking-at "\n") (eobp)))
-          (let* ((cell-attributes (textile-attributes "[A-Za-z0-9.]"))
+          (let* ((cell-attributes (textile-attributes "[A-Za-z0-9]"))
                  (header (or (plist-get row-attributes 'textile-header)
                              (plist-get cell-attributes 'textile-header))))
             (textile-delete-attributes cell-attributes t)
@@ -360,13 +366,14 @@ individual cells and rows as necessary."
                  "th"
                "td")
              cell-attributes)
-            (if (re-search-forward "|" nil t)
+            (if (re-search-forward " *|" nil t)
                 (replace-match ""))
             (textile-end-tag-insert (if header
                                         "th"
                                       "td"))))
         (textile-end-tag-insert "tr")
-        (re-search-forward "\n" nil 1)))))
+        (re-search-forward "\n" nil 1))))
+  (makunbound 'Textile-in-table))
 
 (defun textile-inline-li ()
   "Handle inline processing of tags and list items in this block.
