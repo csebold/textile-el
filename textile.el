@@ -133,6 +133,7 @@ This is the primary processing loop in textile.el."
     (save-restriction
       (narrow-to-region start end)
       (goto-char (point-min))
+      (setq case-fold-search nil)
       (save-excursion
         ; process aliases
         (setq textile-alias-list textile-alias-list-defaults)
@@ -424,6 +425,12 @@ footnotes, etc."
     (while (re-search-forward "\\[\\([0-9]+\\)\\]" nil t)
       (replace-match
        "<sup class=\"footnote\"><a href=\"#fn\\1\">\\1</a></sup>")))
+  (save-excursion
+    (while (re-search-forward "\\([A-Z]\\{3,\\}\\)\\((\\(.*?\\))\\|\\)"
+                              nil t)
+      (if (match-string 3)
+          (replace-match "<acronym title=\"\\3\">\\1</acronym>" t)
+        (replace-match "<acronym>\\1</acronym>" t))))
   (save-excursion
     (while (re-search-forward "\\([^\000-\177]+\\)" nil t)
       (let* ((non-ascii-string (match-string 1))
