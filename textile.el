@@ -1721,6 +1721,8 @@ Any attributes that start with \"textile-\" will be ignored."
     (while (condition-case nil
 	       (setq current-line (textile-batch-read))
 	     (error nil))
+      (while (string-match "\r" current-line)
+	(setq current-line (replace-match "" nil nil current-line)))
       (setq input-string (concat input-string current-line "\n")))
     (textile-batch-write (textile-string
 			  (substring input-string 0
