@@ -26,7 +26,7 @@
 ; Note - in comments, DA = Dean Allen (original author of PHP Textile),
 ; BC = Brad Choate (implemented Textile v2 in Perl for Movable Type)
 
-(defvar textile-version "Textile.el v0.96"
+(defvar textile-version "Textile.el v0.97"
   "Version number for textile.el.")
 
 (defvar textile-block-tag-regexp-start "^\\("
@@ -411,6 +411,12 @@ If ARG, insert string at point."
               my-string
               (list 'mapcar my-function my-string))
         (cons 'progn body)))
+
+; add edebug instrumentation for lisp macro(s)
+(add-hook 'edebug-setup-hook
+          (function (lambda ()
+                      (def-edebug-spec textile-skip-tags
+                        (function-form sexp body)))))
 
 (defun textile-process-macros (my-string)
   "Convert any macros found in MY-STRING to their equivalent entities."
