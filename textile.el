@@ -76,7 +76,7 @@
 ;;                                 than two
 ;; FIXME: testcases.txt, stopped reading the test results after line 665
 
-(defvar textile-version "Textile.el v0.99.0"
+(defvar textile-version "Textile.el v0.99.1"
   "Version number for textile.el.")
 
 (defvar textile-block-tag-regexp-start "^\\("
@@ -335,7 +335,25 @@ If ARG, insert string at point."
                                              (car my-list))))
                 (setq my-list (cdr my-list)))
               (push (list escape-block (list 'textile-tag nil)) new-list))
-          (push this-item new-list))))
+          (if (string-match "^==> *$" this-item)
+              (let* ((escape-block (replace-match "" nil nil this-item))
+                     (hit-end (string-match "^----- *$" escape-block)))
+                (if hit-end
+                    (setq escape-block
+                          (replace-match "" nil nil escape-block)))
+                (while (and my-list (not hit-end))
+                  (if (string-match "^----- *$" (car my-list))
+                      (progn
+                        (setq escape-block
+                              (concat escape-block "\n\n"
+                                      (replace-match "" nil nil
+                                                     (car my-list))))
+                        (setq hit-end t))
+                    (setq escape-block (concat escape-block "\n\n"
+                                               (car my-list))))
+                  (setq my-list (cdr my-list)))
+                (push (list escape-block (list 'textile-tag nil)) new-list))
+            (push this-item new-list)))))
     (reverse new-list)))
 
 (defun textile-blockcode-blocks (my-list)
@@ -1111,8 +1129,8 @@ ids, and langs.  Stop processing at the end of the buffer, string,
 or STOP-REGEXP."
    (let ((my-plist nil)
         (style (if (memq 'next-block-clear context)
-                   (plist-get context 'next-block-clear)
-                 ""))
+                   (list (plist-get context 'next-block-clear))
+                 nil))
         (class nil)
         (id nil)
         (lang nil)
@@ -1142,7 +1160,7 @@ or STOP-REGEXP."
              (re-search-forward stop-regexp nil t)
              (setq not-finished nil))
             ((looking-at "{\\([^}]*\\)}")
-             (setq style (concat style (match-string 1) "; "))
+             (push (match-string 1) style)
              (re-search-forward "}" nil t))
             ((and
               (looking-at "\\[\\(.*?\\)\\]")
@@ -1175,19 +1193,19 @@ or STOP-REGEXP."
              (if (memq 'table context)
                  (setq align "right")
                (push "right" class)
-               (setq style (concat style "text-align: right; ")))
+               (push "text-align: right" style))
              (forward-char 1))
             ((and (not (memq 'inline context))
                   (looking-at "<>"))
              (push "justify" class)
-             (setq style (concat style "text-align: justify; "))
+             (push "text-align: justify" style)
              (forward-char 2))
             ((and (not (memq 'inline context))
                   (equal this-char ?\<))
              (push "left" class)
              (if (memq 'table context)
                  (setq align "left")
-               (setq style (concat style "text-align: left; ")))
+               (push "text-align: left" style))
              (forward-char 1))
             ((and (not (memq 'inline context))
                   (equal this-char ?\=))
@@ -1195,11 +1213,11 @@ or STOP-REGEXP."
               ((memq 'table context)
                (setq align "center"))
               ((memq 'table-outer-tag context)
-               (setq style (concat style
-                                   "margin-left: auto; margin-right: auto; ")))
+               (push "margin-left: auto" style)
+               (push "margin-right: auto" style))
               (t
                (push "center" class)
-               (setq style (concat style "text-align: center; "))))
+               (push "text-align: center" style)))
              (forward-char 1))
             ((and (memq 'table context)
                   (equal this-char ?^ ))
@@ -1207,17 +1225,17 @@ or STOP-REGEXP."
              (forward-char 1))
             ((and (memq 'image context)
                   (equal this-char ?^ ))
-             (setq style (concat style "vertical-align: text-top; ")))
+             (push "vertical-align: text-top" style))
             ((and (memq 'table context)
                   (equal this-char ?\~))
              (setq valign "bottom")
              (forward-char 1))
             ((and (memq 'image context)
                   (equal this-char ?\~ ))
-             (setq style (concat style "vertical-align: text-bottom; ")))
+             (push "vertical-align: text-bottom" style))
             ((and (memq 'image context)
                   (equal this-char ?-))
-             (setq style (concat style "vertical-align: middle; ")))
+             (push "vertical-align: middle" style))
             ((and (memq 'table context)
                   (looking-at "[\\]\\([0-9]+\\)"))
              (setq colspan (match-string 1))
@@ -1242,20 +1260,23 @@ or STOP-REGEXP."
                                  (buffer-substring (point-min)
                                                    (point)))))
      (if (> left-pad 0)
-         (setq style (concat style "padding-left: "
-                             (format "%d" left-pad) "em; ")))
+         (push (concat "padding-left: " (format "%d" left-pad) "em") style))
      (if (> right-pad 0)
-         (setq style (concat style "padding-right: "
-                             (format "%d" right-pad) "em; ")))
+         (push (concat "padding-right: " (format "%d" right-pad) "em")
+               style))
      (when (and (or (> left-pad 0) (> right-pad 0))
-                style
-                (string-match "text-align: \\(left\\|right\\); " style))
-       (setq style (replace-match "float: \\1; " nil nil style)))
-     (setq class (mapconcat 'identity class " "))
+                style)
+       (when (member "text-align: left" style)
+         (setq style (delete "text-align: left" style))
+         (push "float: left" style))
+       (when (member "text-align: right" style)
+         (setq style (delete "text-align: right" style))
+         (push "float: right" style)))
      (dolist (this-variable '(style class id lang align valign
                                     colspan rowspan
                                     textile-header textile-well-formed))
-       (when (string= (eval this-variable) "")
+       (when (and (stringp (eval this-variable))
+                  (string= (eval this-variable) ""))
          (set this-variable nil))
        (setq my-plist (plist-put my-plist
                                  (if (and
@@ -1348,10 +1369,10 @@ left or right floating, or nothing for the default of \"both\"."
               (plist-put nil 'next-block-clear
                             (cond
                              ((string= attrib-string "<")
-                              "clear: left; ")
+                              "clear: left")
                              ((string= attrib-string ">")
-                              "clear: right; ")
-                             (t "clear: both; ")))))
+                              "clear: right")
+                             (t "clear: both")))))
     (textile-error "Clear block's attribute string must be <, >, or nothing.")
     ""))
 
@@ -1710,8 +1731,15 @@ continue."
   "Generate an attribute string based on MY-PLIST.
 Any attributes that start with \"textile-\" will be ignored."
   (if (and (car my-plist) (cadr my-plist))
-      (let ((attrib (format "%s" (car my-plist)))
-            (value (format "%s" (cadr my-plist))))
+      (let* ((attrib (format "%s" (car my-plist)))
+             (value
+              (if (stringp (cadr my-plist))
+                  (format "%s" (cadr my-plist))
+                (if (string= attrib "style")
+                    (mapconcat 'identity (cadr my-plist) "; ")
+                  (if (string= attrib "class")
+                      (mapconcat 'identity (cadr my-plist) " ")
+                    (format "%s" (cadr my-plist)))))))
         (if (string-match "^textile-" attrib)
             (textile-generate-attribute-string (cddr my-plist))
           (concat " " attrib "=\"" value "\""
