@@ -674,85 +674,6 @@ or STOP-REGEXP."
        (setq my-plist (plist-put my-plist this-variable (eval this-variable))))
      my-plist))
 
-(defun textile-process-block ()
-  "Generic block processing to call inline textile conversion.
-Process the following paragraph by calling various inline
-functions.  This is the generic version; some blocks have special
-process functions (see textile-process-list-block, etc.)."
-  (save-excursion
-    (save-restriction
-      (narrow-to-region (point)
-                        (save-excursion
-                          (textile-end-of-paragraph)
-                          (point)))
-;      (textile-inline-entities)
-      (textile-inline-newline)
-      (textile-inline-generic)
-      ; insert more inline tests here
-      )))
-
-(defun textile-process-list-block ()
-  "Block processing of lists, calling inline textile conversion.
-Process the following paragraph by calling various inline
-functions, but handle new list items in this block specially."
-  (save-excursion
-    (save-restriction
-      (narrow-to-region (point)
-                        (save-excursion
-                          (textile-end-of-paragraph)
-                          (point)))
-;      (textile-inline-entities)
-      (textile-inline-li)
-      (textile-inline-generic)
-      ; insert more inline tests here
-      )))
-
-(defun textile-process-table-block ()
-  "Block processing of tables, calling inline textile conversion.
-Process the following paragraph by calling various inline
-functions, but handle new table rows in this block specially."
-  (save-excursion
-    (save-restriction
-      (narrow-to-region (point)
-                        (save-excursion
-                          (textile-end-of-paragraph)
-                          (point)))
-      (textile-inline-table)
-      ; insert more inline tests here
-      )))
-
-(defun textile-process-definition-block ()
-  "Block processing of definition blocks, calling inline textile conversion.
-Process the following paragraph by calling various inline
-functions, but handle new terms and definitions in this block
-specially."
-  (save-excursion
-    (save-restriction
-      (narrow-to-region (point)
-                        (save-excursion
-                          (textile-end-of-paragraph)
-                          (point)))
-;      (textile-inline-entities)
-      (textile-inline-dl)
-      (textile-inline-generic)
-      ; insert more inline tests here
-      )))
-
-(defun textile-process-pre-block ()
-  "Block processing of preformatted blocks, calling inline textile conversion.
-Process the following paragraph by calling various inline
-functions, but handle everything carefully, since this part is
-supposed to be preformatted."
-  (save-excursion
-    (save-restriction
-      (narrow-to-region (point)
-                        (save-excursion
-                          (textile-end-of-paragraph)
-                          (point)))
-      (textile-inline-entities)
-      ; insert more inline tests here
-      )))
-
 (defun textile-non-ascii-to-unicode (string)
   "Convert STRING to Unicode entities."
   ; this assumes that 'utf-16-be is a big-endian Unicode with signature,
@@ -776,21 +697,6 @@ supposed to be preformatted."
       (setq unicode-values (cddr unicode-values)))
     output))
 
-(defun textile-inline-generic ()
-  "Handle most Textile inline processing of tags.
-Practically all block formatting (except preformatted blocks)
-should call this function to handle inline tags like em, strong,
-footnotes, etc."
-  (save-excursion
-    (while (re-search-forward "\\<\\([A-Z]\\{3,\\}\\)\\((\\(.*?\\))\\|\\)"
-                              nil t)
-      (if (match-string 3)
-          (replace-match "<acronym title=\"\\3\">\\1</acronym>" t)
-        (replace-match "<acronym>\\1</acronym>" t))))
-  (save-excursion
-    (while (re-search-forward textile-inline-tag-regexp nil t)
-      (textile-handle-inline-tag (match-string 1)))))
-
 (defun textile-alias-to-url (lookup alias-list)
   "Lookup potential alias LOOKUP in ALIAS-LIST, return nil if none."
   (if alias-list
@@ -801,36 +707,6 @@ footnotes, etc."
             (list "" (cadr alias-list)))
         (textile-alias-to-url lookup (cddr alias-list)))
     nil))
-
-(defun textile-handle-inline-tag (tag)
-  "Given TAG, properly handle everything to the end of this tag."
-  (if (save-excursion
-        (re-search-forward (concat (regexp-quote tag)
-                                   "\\(?:$\\| \\|[<,;:!?.]\\)") nil t))
-      (progn
-        (delete-region (- (point) (length tag)) (point))
-        (save-excursion
-          (save-restriction
-            (narrow-to-region
-             (point)
-             (save-excursion
-               (re-search-forward (concat (regexp-quote tag)
-                                          "\\(?:$\\| \\|[<,;:!?.]\\)") nil t)
-               (point)))
-            (if (not (string= tag "=="))
-                (let ((attributes (textile-attributes))
-                      (html-tag (textile-generate-inline-tag
-                                 tag
-                                 textile-inline-tag-list)))
-                  (textile-delete-attributes attributes)
-                  (textile-tag-insert html-tag attributes)
-                  (re-search-forward (concat
-                                      (regexp-quote tag)
-                                      "\\($\\| \\|[<,;:!?.]\\)") nil t)
-                  (replace-match (concat "</" html-tag ">\\1")))
-              (re-search-forward (concat (regexp-quote tag)
-                                         "\\($\\| \\|[<,;:!?.]\\)") nil t)
-              (replace-match "\\1")))))))
 
 (defun textile-generate-inline-tag (tag tag-list)
   "Convert textile tag to HTML tag or return nil if no match."
@@ -863,78 +739,6 @@ paragraphs into <br> tags."
       (save-excursion
         (while (re-search-forward "\n" nil t)
           (replace-match "<br />\\&")))))
-
-(defun textile-inline-table ()
-  "Handle inline processing of tags and table cells in this block.
-Convert table rows into proper HTML, including attributes for
-individual cells and rows as necessary."
-  (if textile-br-all-newlines
-      (save-excursion
-        (while (re-search-forward "\\([^|] *\\)\n" nil t)
-          (replace-match "\\1<br />\n"))))
-  (setq Textile-in-table t)
-  (save-excursion
-    (while (not (eobp))
-      (let ((row-attributes (textile-attributes " *|")))
-        (textile-delete-attributes row-attributes)
-        (textile-tag-insert "tr" row-attributes)
-        (while (not (or (looking-at "\n") (eobp)))
-          (let* ((cell-attributes (textile-attributes "[.] +"))
-                 (header (or (plist-get row-attributes 'textile-header)
-                             (plist-get cell-attributes 'textile-header))))
-            (textile-delete-attributes cell-attributes)
-            (textile-tag-insert
-             (if header
-                 "th"
-               "td")
-             cell-attributes)
-            ; FIXME - have to run textile-inline-generic here on the cell
-            (if (re-search-forward " *|" nil t)
-                (replace-match ""))
-            (textile-end-tag-insert (if header
-                                        "th"
-                                      "td"))))
-        (textile-end-tag-insert "tr")
-        (re-search-forward "\n" nil 1))))
-  (makunbound 'Textile-in-table))
-
-(defun textile-inline-li ()
-  "Handle inline processing of tags and list items in this block.
-Convert list items starting with list tags into proper HTML,
-including attributes if necessary."
-  (if textile-br-all-newlines
-      (save-excursion
-        (while (re-search-forward "\n[^*#]" nil t)
-          (replace-match "<br />\\&"))))
-  ; FIXME - deal with nested lists, probably v2
-  (save-excursion
-    (while (re-search-forward "\n\\([*#]\\)" nil t)
-      (let ((tag (match-string 1)))
-        (replace-match "</li>\n")
-        (let ((attributes (textile-attributes)))
-          (textile-delete-attributes attributes)
-          (textile-tag-insert "li" attributes))))))
-
-(defun textile-inline-dl ()
-  "Convert definition-list terms and definitions into proper HTML."
-  (save-excursion
-    (while (progn
-             (if (not (looking-at ".*?[^ \n]+:[^ ]"))
-                 (if textile-br-all-newlines
-                     (save-excursion
-                       (backward-char 1)
-                       (insert "<br />")))
-               (insert "<dt>")
-               (re-search-forward ":" nil t)
-               (save-excursion
-                 (backward-char 1)
-                 (insert "</dt>"))
-               (delete-backward-char 1)
-               (insert "<dd>"))
-             (re-search-forward "\n" nil t))))
-  (save-excursion
-    (while (re-search-forward "\n<dt>" nil t)
-      (replace-match "</dd>\\&"))))
 
 (defun textile-block-clear (my-string)
   "Pass a \"clear:left|right|both\" style to the next block.
