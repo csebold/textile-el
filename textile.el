@@ -581,39 +581,38 @@ like that).")
 
 (defun textile-process-quotes (my-string)
   "Educate all quotes in a given string or list of strings."
-  (if (listp my-string)
-      (if (member 'textile-tag my-string)
-          my-string
-        (mapcar 'textile-process-quotes my-string))
-    (with-temp-buffer
-      (insert my-string)
-      (goto-char (point-min))
-      (let ((links nil)
-            (textile-quotes-list textile-smart-quotes-list))
-        (while
-            (re-search-forward
-             "\\(\"\\([^\"]*?\\)\":\\([^ ]*?\\)\\)\\([,.;:\"']?\\( \\|$\\)\\)"
-             nil t)
-          (push (match-string 1) links)
-          (replace-match
-           (format "emacs_textile_link_token_%0d_x%s" (safe-length links)
-                   (match-string 4))))
-        (goto-char (point-min))
-        (while (re-search-forward "\\b\\(@.*?@\\)\\b" nil t)
-          (push (match-string 1) links)
-          (replace-match
-           (format "emacs_textile_link_token_%0d_x" (safe-length links))))
-        (goto-char (point-min))
-        (while textile-quotes-list
-          (save-excursion
-            (while (re-search-forward (car textile-quotes-list) nil t)
-              (replace-match (cadr textile-quotes-list)))
-            (setq textile-quotes-list (cddr textile-quotes-list))))
-        (while (re-search-forward "emacs_textile_link_token_\\([0-9]+\\)_x"
-                                  nil t)
-          (replace-match (nth (- (safe-length links)
-                                 (string-to-number (match-string 1))) links))))
-      (buffer-string))))
+  (textile-skip-tags
+   'textile-process-quotes
+   my-string
+   (with-temp-buffer
+     (insert my-string)
+     (goto-char (point-min))
+     (let ((links nil)
+           (textile-quotes-list textile-smart-quotes-list))
+       (while
+           (re-search-forward
+            "\\(\"\\([^\"]*?\\)\":\\([^ ]*?\\)\\)\\([,.;:\"']?\\( \\|$\\)\\)"
+            nil t)
+         (push (match-string 1) links)
+         (replace-match
+          (format "emacs_textile_link_token_%0d_x%s" (safe-length links)
+                  (match-string 4))))
+       (goto-char (point-min))
+       (while (re-search-forward "\\b\\(@.*?@\\)\\b" nil t)
+         (push (match-string 1) links)
+         (replace-match
+          (format "emacs_textile_link_token_%0d_x" (safe-length links))))
+       (goto-char (point-min))
+       (while textile-quotes-list
+         (save-excursion
+           (while (re-search-forward (car textile-quotes-list) nil t)
+             (replace-match (cadr textile-quotes-list)))
+           (setq textile-quotes-list (cddr textile-quotes-list))))
+       (while (re-search-forward "emacs_textile_link_token_\\([0-9]+\\)_x"
+                                 nil t)
+         (replace-match (nth (- (safe-length links)
+                                (string-to-number (match-string 1))) links))))
+     (buffer-string))))
 
 (defun textile-process-link (my-string)
   "Process all links in a given string or list of strings."
