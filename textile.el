@@ -21,73 +21,100 @@
 ; well Emacs will stand up to the task.  I don't mind requiring 'cl if
 ; I have to but I really didn't want to have to use EIEIO for this.
 
+(defvar textile-block-tag-regexp-start "\\(")
+(defvar textile-block-any-tag-regexp "[^ .]+")
+(defvar textile-block-tag-regexp-end "\\)\\(\\.\\{1,2\\}\\) ")
+
+(defvar textile-block-tag-regexp
+  (concat textile-block-tag-regexp-start
+          textile-block-any-tag-regexp
+          textile-block-tag-regexp-end))
+
+(defun textile-this-block-tag-regexp (tag)
+  (concat textile-block-tag-regexp-start
+          tag "+"
+          textile-block-tag-regexp-end))
+
+(defvar textile-error-break nil)
+
+; code for processing each paragraph of an extended block
+;;     (while (and
+;;             (not (looking-at textile-block-tag-regexp))
+;;             (not (equal (point) (point-max))))
+;;       (textile-next-paragraph)
+
 (defun textile-code-to-blocks (start end)
-  (let ((my-region (buffer-substring-no-properties start end)))
-    (with-temp-buffer
-      (insert my-region)
-      (goto-char (point-min))
-      (while (not (equal (point) (point-max)))
-        (message (format "Point is at %d." (point)))
-        (let ((this-block-type "p")
-              (this-block-tag "p")
-              (this-block-class "")
-              (this-block-style "")
-              (this-block-id ""))
-          (narrow-to-region (point)
-                            (save-excursion
-                              (re-search-forward "^\n" nil 1)
-                              ; Not working right at the end; FIXME
-                              (backward-char 2)
-                              (point)))
-          (goto-char (point-min))
-          (while (looking-at "\n")
-            (forward-char 1))
-          ; deal with extended blocks (Textile 2), FIXME
-          (if (looking-at "\\([^ .]+\\)\\. ")
-              (progn
-                (setq this-block-type (match-string 1))
-                (setq this-block-tag
-                      (cond
-                       ((string= this-block-type "bq") "blockquote")
-                       ((string-match "^h[1-6]$" this-block-type)
-                        this-block-type)
-                       ((string-match "^fn[0-9]+$" this-block-type)
-                        (progn
-                          (setq this-block-class "footnote")
-                          (setq this-block-id this-block-type)
-                          "p"))
-                       ((string= this-block-type "bc") "pre")
-                       (t nil)))
-                (if this-block-tag
-                    (delete-region (point)
-                                   (save-excursion
-                                     (re-search-forward "\\([^ ]+\\)\\. ")))
-                  (setq this-block-tag "p"))))
-          (goto-char (point-min))
-          (while (looking-at "\n")
-            (forward-char 1))
-          (insert (concat "<" this-block-tag 
-                          (if (not (string= this-block-class ""))
-                              (concat " class=\"" this-block-class
-                                      "\"" ))
-                          (if (not (string= this-block-id ""))
-                              (concat " id=\"" this-block-id
-                                      "\"" ))
-                          (if (not (string= this-block-style ""))
-                              (concat " style=\"" this-block-style
-                                      "\"" ))
-                          ">"
-                          (if (string= this-block-type "bc")
-                              "<code>")))
-          (goto-char (point-max))
-          (insert (concat (if (string= this-block-type "bc")
-                              "</code>") "</" this-block-tag ">"))
-          (widen)
-          (re-search-forward "^\n" nil 1)))
-      (buffer-string))))
+  (narrow-to-region start end)
+  (goto-char (point-min))
+  (while
+      (progn
+        (if (looking-at textile-block-tag-regexp)
+            (let ((tag (match-string 1))
+                  (extended (string= (match-string 2) ".."))
+                  (style nil)
+                  (class nil)
+                  (id nil)) ; FIXME - fix style/class/id handling
+              (if (fboundp
+                   (car (read-from-string (concat "textile-block-" tag))))
+                  (eval (car (read-from-string
+                              (concat "(textile-block-" tag " " extended
+                                      " " style " " class " " id))))
+                (textile-block-p nil nil nil nil)))
+          (textile-block-p nil nil nil nil))))
+  (widen))
+
+(defun textile-block-p (extended style class id)
+  (if extended
+      (textile-error "Extended <p> block doesn't make sense.")
+    (if (looking-at (textile-this-block-tag-regexp "p"))
+        (textile-delete-tag "p"))
+    (textile-block-start-tag-insert "p" style class id)
+    (textile-end-of-paragraph)
+    (textile-block-end-tag-insert "p")
+    (textile-next-paragraph)))
+
+(defun textile-delete-tag (&optional tag)
+  (delete-region
+   (point)
+   (save-excursion
+     (re-search-forward
+      (if tag
+          (textile-this-block-tag-regexp tag)
+        textile-block-tag-regexp)
+      nil t)
+     (point))))
+
+
+(defun textile-error (error-message)
+  (if textile-error-break
+      (error "%s" error-message)
+    (message "Textile error: %s" error-message)))
 
 (defun textile-region (start end)
   (interactive "r")
   (textile-code-to-blocks start end))
+
+(defun textile-block-start-tag-insert (tag style class id)
+  (insert (concat "<" tag))
+  (if id
+      (insert (concat " id=\"" id "\"")))
+  (if class
+      (insert (concat " class=\"" class "\"")))
+  (if style
+      (insert (concat " style=\"" style "\"")))
+  (insert ">"))
+
+(defun textile-block-end-tag-insert (tag)
+  (insert (concat "</" tag ">")))
+
+(defun textile-next-paragraph ()
+  (re-search-forward "^\n+" nil 1))
+
+(defun textile-end-of-paragraph ()
+  (textile-next-paragraph)
+  (backward-char 1)
+  (while (looking-at "\n")
+    (backward-char 1))
+  (forward-char 1))
 
 (provide 'textile)
