@@ -12,7 +12,9 @@
                            (point))))
         (let ((this-block-type "p")
               (this-block-tag "p")
-              (this-block-class ""))
+              (this-block-class "")
+              (this-block-style "")
+              (this-block-id ""))
           (narrow-to-region (point)
                             (save-excursion
                               (forward-paragraph 1)
@@ -25,15 +27,15 @@
           (if (looking-at "\\([^ ]+\\)\\. ")
               (progn
                 (setq this-block-type (match-string 1))
-; should determine what kind of block this is - FIXME
                 (setq this-block-tag
                       (cond
                        ((string= this-block-type "bq") "blockquote")
                        ((string-match "^h[1-6]$" this-block-type)
                         this-block-type)
-                       ((string= this-block-type "fn")
+                       ((string-match "^fn[0-9]+$" this-block-type)
                         (progn
                           (setq this-block-class "footnote")
+                          (setq this-block-id this-block-type)
                           "p"))
                        (t nil)))
                 (if this-block-tag
@@ -45,7 +47,17 @@
           (beginning-of-buffer)
           (while (looking-at "\n")
             (forward-char 1))
-          (insert (concat "<" this-block-tag ">"))
+          (insert (concat "<" this-block-tag 
+                          (if (not (string= this-block-class ""))
+                              (concat " class=\"" this-block-class
+                                      "\"" ))
+                          (if (not (string= this-block-id ""))
+                              (concat " id=\"" this-block-id
+                                      "\"" ))
+                          (if (not (string= this-block-style ""))
+                              (concat " style=\"" this-block-style
+                                      "\"" ))
+                          ">"))
           (end-of-buffer)
           (insert (concat "</" this-block-tag ">"))
           (widen)
