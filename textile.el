@@ -174,11 +174,8 @@ ids, and langs."
                             (format "%d" right-pad) "em; ")))
     (dolist (this-variable '(style class id lang))
       (when (string= (eval this-variable) "")
-        (set this-variable nil)))
-    (setq my-plist (plist-put my-plist 'style style))
-    (setq my-plist (plist-put my-plist 'class class))
-    (setq my-plist (plist-put my-plist 'id id))
-    (setq my-plist (plist-put my-plist 'lang lang))
+        (set this-variable nil))
+      (setq my-plist (plist-put my-plist this-variable (eval this-variable))))
     my-plist))
 
 (defun textile-process-block ()
