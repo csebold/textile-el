@@ -11,7 +11,7 @@
 ; BC = Brad Choate (implemented Textile v2 in Perl for Movable Type)
 
 ; Tue 27 Jul 2004 09:41 - yay!  All BC block tags handled except for
-; table at this point.
+; table at this point (in progress).
 
 (defvar textile-block-tag-regexp-start "^\\("
   "All textile tag regexps start with this.")
@@ -144,6 +144,8 @@ or STOP-REGEXP."
        (insert 
         (or attrib-string ""))
        (goto-char (point-min))
+       (setq my-plist
+             (plist-put my-plist 'textile-attrib-string-length (point-max)))
        (while (not (eobp))
          (let ((this-char (char-after)))
            (cond
@@ -346,13 +348,25 @@ individual cells and rows as necessary."
     ; FIXME - finish table row processing
     (while (not (eobp))
       (let ((row-attributes (textile-attributes "|")))
-        (delete-region (point)
-                       (+ (point)
-                          (plist-get row-attributes
-                                     'textile-attrib-string-length)))
+        (textile-delete-attributes row-attributes)
         (textile-tag-insert "tr" row-attributes)
-      ; FIXME - finish processing the row
-        ))))
+        (while (not (looking-at "\n"))
+          (let* ((cell-attributes (textile-attributes "[A-Za-z0-9.]"))
+                 (header (or (plist-get row-attributes 'textile-header)
+                             (plist-get cell-attributes 'textile-header))))
+            (textile-delete-attributes cell-attributes)
+            (textile-tag-insert
+             (if header
+                 "th"
+               "td")
+             cell-attributes)
+            (re-search-forward "|" nil t)
+            (replace-match "")
+            (textile-end-tag-insert (if header
+                                        "th"
+                                      "td"))))
+        (textile-end-tag-insert "tr")
+        (re-search-forward "\n" nil t)))))
 
 (defun textile-inline-li ()
   "Handle inline processing of tags and list items in this block.
@@ -657,5 +671,13 @@ Any attributes that start with \"textile-\" will be ignored."
   (while (looking-at "\n")
     (backward-char 1))
   (forward-char 1))
+
+(defun textile-delete-attributes (attributes)
+  "Delete textile-tagged attributes starting at (point)."
+  (delete-region (point)
+                 (+ (point)
+                    (plist-get attributes
+                               'textile-attrib-string-length)
+                    -1)))
 
 (provide 'textile)
