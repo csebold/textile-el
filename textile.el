@@ -26,7 +26,7 @@
 ; Note - in comments, DA = Dean Allen (original author of PHP Textile),
 ; BC = Brad Choate (implemented Textile v2 in Perl for Movable Type)
 
-(defvar textile-version "Textile.el v0.94"
+(defvar textile-version "Textile.el v0.96"
   "Version number for textile.el.")
 
 (defvar textile-block-tag-regexp-start "^\\("
