@@ -193,7 +193,7 @@ like that).")
   (if (stringp my-list)
       my-list
     (let* ((my-plist (car (last my-list)))
-           (args (reverse (cdr (reverse my-list))))
+           (args (textile-all-but-last  my-list))
            (my-string (mapconcat (function
                                   (lambda (item)
                                     (if (stringp item)
@@ -832,6 +832,10 @@ HTML-formatted this definition list."
 ;;         (textile-next-paragraph))
 ;;     (textile-block-p nil)))
 
+(defun textile-all-but-last (my-list)
+  "Return everything in the list but the last item."
+  (reverse (cdr (reverse my-list))))
+
 (defun textile-block-table (my-string attributes)
   "Handle the table block starting at (point).
 Finish at the beginning of the next paragraph, having completely
@@ -841,7 +845,8 @@ HTML-formatted this table."
   (if (plist-get attributes 'textile-extended)
       (textile-error "Extended <table> block doesn't make sense."))
   (setq attributes (plist-put attributes 'textile-tag "table"))
-  (let ((my-row-list (split-string my-string " *| *\\(?:\n\\|$\\)")))
+  (let ((my-row-list (textile-all-but-last
+                      (split-string my-string " *| *\\(?:\n\\|$\\)"))))
     (append
      (mapcar 'textile-table-row-process my-row-list) (list attributes))))
 ;;     (textile-tag-insert "table" attributes)
