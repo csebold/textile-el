@@ -148,6 +148,11 @@ auto-fill-mode).  Right now the default is standard Textile
 behavior (this could probably work with longlines.el or something
 like that).")
 
+(defvar textile-utf-16-capable
+  (or (coding-system-p 'utf-16-be)
+      (coding-system-p 'utf-16-be-no-signature))
+  "If we have utf-16, then we can do entity conversion.")
+
 (defun textile-string-to-list (my-string)
   "Process textile-encoded MY-STRING and return a textile list tree."
   (let ((old-eval-depth max-lisp-eval-depth))
@@ -299,7 +304,8 @@ like that).")
     ; from this point on there will be no more converting ampersands
     ; to &amp;
       (setq my-list (mapcar 'textile-process-newline my-list))
-      (setq my-list (mapcar 'textile-process-non-ascii my-list))
+      (if textile-utf-16-capable
+          (setq my-list (mapcar 'textile-process-non-ascii my-list)))
       (setq my-list (mapcar 'textile-decode-escapes my-list))
       (append my-list (list my-plist)))))
 
@@ -1042,7 +1048,7 @@ or STOP-REGEXP."
         (setq unicode-values (cddr unicode-values)))
       output))
    (t
-     string))))
+    string)))
 
 (defun textile-alias-to-url (lookup alias-list)
   "Lookup potential alias LOOKUP in ALIAS-LIST, return nil if none."
