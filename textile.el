@@ -144,6 +144,7 @@
                           (textile-end-of-paragraph)
                           (point)))
       (textile-inline-newline)
+      (textile-inline-generic)
       ; insert more inline tests here
       )))
 
@@ -155,8 +156,15 @@
                           (textile-end-of-paragraph)
                           (point)))
       (textile-inline-li)
+      (textile-inline-generic)
       ; insert more inline tests here
       )))
+
+(defun textile-inline-generic ()
+  (save-excursion
+    (while (re-search-forward "\\[\\([0-9]+\\)\\]" nil t)
+      (replace-match
+       "<sup class=\"footnote\"><a href=\"#fn\\1\">\\1</a></sup>"))))
 
 (defun textile-inline-newline ()
   (if textile-br-all-newlines
@@ -208,6 +216,7 @@
     (textile-delete-tag id)
     (textile-block-start-tag-insert "p" style class id lang)
     (insert "<sup>" num "</sup> ")
+    (textile-process-block)
     (textile-end-of-paragraph)
     (textile-block-end-tag-insert "p")
     (textile-next-paragraph)))
@@ -218,6 +227,7 @@
     (let ((my-tag (concat "h" hlevel)))
       (textile-delete-tag my-tag)
       (textile-block-start-tag-insert my-tag style class id lang)
+      (textile-process-block)
       (textile-end-of-paragraph)
       (textile-block-end-tag-insert my-tag)
       (textile-next-paragraph))))
@@ -229,13 +239,13 @@
       (while
           (progn
             (textile-block-start-tag-insert "p" nil nil nil nil)
+            (textile-process-block)
             (textile-end-of-paragraph)
             (textile-block-end-tag-insert "p")
             (when (save-excursion
                     (textile-next-paragraph)
                     (and (not (looking-at textile-block-tag-regexp))
                          (not (eobp))))
-              (textile-process-block)
               (textile-next-paragraph))))
     (textile-block-start-tag-insert "p" nil nil nil nil)
     (textile-process-block)
