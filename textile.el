@@ -400,14 +400,16 @@ supposed to be preformatted."
 
 (defun textile-non-ascii-to-unicode (string)
   "Convert STRING to Unicode entities."
-  ; FIXME - this isn't working; not sure why.  In a string of non-ASCII
-  ;         characters, the ones that aren't at the end of a word usually
-  ;         work.
   (let ((unicode-string (encode-coding-string string 'utf-16))
         (unicode-values nil)
         (output ""))
-    (dolist (i (nthcdr 3 (split-string unicode-string "")))
-      (setq unicode-values (cons (string-to-char i) unicode-values)))
+    (setq unicode-values (reverse
+                          (cdr
+                           (reverse
+                            (mapcar 'string-to-char
+                                    (nthcdr 3
+                                            (split-string
+                                             unicode-string "")))))))
     (while (cdr unicode-values)
       (setq output (concat output "&#" (number-to-string
                                         (+ (* (car unicode-values) 256)
