@@ -143,7 +143,8 @@ like that).")
     (cond
      ; test for block tags
      (t
-      (plist-put my-plist 'tag nil)))
+      (plist-put my-plist 'tag "p")
+      (plist-put my-plist 'explicit nil)))
     (list (textile-inline-to-list my-string) my-plist)))
 
 (defun textile-inline-to-list (my-string)
@@ -152,8 +153,21 @@ like that).")
     (cond
      ; break it up for inline tags
      (t
-      (plist-put my-plist 'tag nil)))
-    (list my-string my-plist)))
+      (plist-put my-plist 'tag nil)
+      (list my-string my-plist)))))
+
+(defun textile-compile-string (my-list)
+  "Convert textile tree to XHTML string."
+  ; FIXME - this is backwards; it should be loading the plist first,
+  ; then calling recursive part of the function, I think
+  (if (stringp (car my-list))
+      (concat
+       (if (and (cadr my-list) (plist-get (cdr my-list) 'tag))
+           (concat "<" (plist-get (cdr my-list) 'tag) ">" my-string
+                   "</" (plist-get (cdr my-list) 'tag) ">")
+         (car my-list)) "\n\n")
+    (concat (textile-compile-string (car my-list))
+            (textile-compile-string (cdr my-list)))))
 
 (defun textile-code-to-blocks (start end)
   "Block process region from START to END.
