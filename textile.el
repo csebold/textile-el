@@ -390,6 +390,7 @@ If ARG, insert string at point."
         (setq my-list (mapcar 'textile-process-footnote my-list))
         (setq my-list (mapcar 'textile-process-acronym my-list))
         (setq my-list (mapcar 'textile-process-link my-list))
+        (setq my-list (mapcar 'textile-process-auto-link my-list))
         (setq my-list (mapcar 'textile-process-ampersand my-list))
     ; from this point on there will be no more converting ampersands
     ; to &amp;
@@ -862,6 +863,37 @@ If ARG, insert string at point."
                             'href (textile-process-ampersand url))
                            'title title)) delimiter
                            (plist-put nil 'textile-tag nil)))))
+      my-string)))
+
+(defun textile-process-auto-link (my-string)
+  (textile-skip-tags
+   'textile-process-auto-link
+   my-string
+    (if (string-match
+         "\\(\\(?:http\\|ftp\\|mailto\\):\\(?://\\)?.*?\\)\\([],.;:\"']?\\(?: \\|$\\)\\)"
+         my-string)
+        (if (not (equal (match-beginning 0) 0))
+            (list (textile-remove-braces
+                   (substring my-string 0 (match-beginning 0)))
+                  (textile-process-auto-link (substring my-string
+                                                        (match-beginning 0)))
+                  (plist-put nil 'textile-tag nil))
+          (if (not (equal (match-end 0) (length my-string)))
+              (list (save-match-data
+                      (textile-process-auto-link (substring my-string
+                                                            (match-beginning 0)
+                                                            (match-end 2))))
+                    (textile-process-auto-link
+                     (substring my-string
+                                (match-end 2)))
+                    (plist-put nil 'textile-tag nil))
+            (list (list (textile-process-ampersand (match-string 1 my-string))
+                        (plist-put
+                         (plist-put nil 'textile-tag "a")
+                         'href (textile-process-ampersand
+                                (match-string 1 my-string))))
+                  (match-string 2 my-string)
+                  (plist-put nil 'textile-tag nil))))
       my-string)))
 
 (defun textile-process-non-ascii (my-string)
