@@ -132,7 +132,9 @@ like that).")
   "Process textile-encoded MY-STRING and return a textile list tree."
   (setq textile-alias-list textile-alias-list-defaults)
   (let ((blocks (textile-blockcode-blocks
-                 (textile-escape-blocks (split-string my-string "\n\n")))))
+                 (textile-escape-blocks (split-string
+                                         (textile-process-aliases
+                                          my-string) "\n\n")))))
     (delete "" (mapcar 'textile-block-to-list blocks))))
 
 (defun textile-escape-blocks (my-list)
@@ -393,13 +395,39 @@ like that).")
     (setq my-string (replace-match "\\1\n\\2" nil nil my-string)))
   my-string)
 
-(defun textile-process-aliases ()
-  "Process the entire buffer, finding and removing aliases."
-  (while
-      (cond
-       ((looking-at "\\[.*?\\].+")
-        (textile-block-alias))
-       (t (textile-next-paragraph)))))
+(defun textile-process-aliases (my-string)
+  "Return MY-STRING without aliases, and set textile-alias-list."
+  (while (string-match "\\(^\\|\n\\)\\[\\(.*?\\)\\]\\([^\n]+\\)\n"
+                       my-string)
+    (let* ((delimiter (match-string 1 my-string))
+           (alias-string (match-string 2 my-string))
+           (url-string (match-string 3 my-string))
+           (alias "")
+           (title ""))
+      (setq my-string (replace-match delimiter nil nil my-string))
+      (if (string-match "\\(.*\\) +(\\(.*\\))" alias-string)
+          (progn
+            (setq alias (match-string 1 alias-string))
+            (setq title (match-string 2 alias-string)))
+        (setq alias alias-string))
+      (if (member alias textile-alias-list)
+          (dotimes (i (safe-length textile-alias-list))
+            (if (and
+                 (stringp (nth i textile-alias-list))
+                 (string= (nth i textile-alias-list) alias))
+                (setcar (nthcdr (1+ i) textile-alias-list)
+                        (if (string= title "")
+                            url-string
+                          (list title url-string)))))
+        (setq textile-alias-list
+              (cons
+               (if (string= title "")
+                   url-string
+                 (list title url-string))
+               textile-alias-list))
+        (setq textile-alias-list
+              (cons alias textile-alias-list)))))
+  my-string)
 
 (defun textile-attributes (&optional stop-regexp attrib-string &rest context)
   "Return a plist of attributes from (point) or ATTRIB-STRING.
@@ -641,30 +669,6 @@ footnotes, etc."
           (replace-match "<acronym title=\"\\3\">\\1</acronym>" t)
         (replace-match "<acronym>\\1</acronym>" t))))
   (save-excursion
-    (while (re-search-forward
-            "\"\\([^\"]*?\\)\":\\([^ ]*?\\)\\([,.;:]?\\(?: \\|$\\)\\)"
-            nil t)
-      (let* ((text (match-string 1))
-             (url (match-string 2))
-             (delimiter (match-string 3))
-             (title "")
-             (alias-info (textile-alias-to-url url textile-alias-list)))
-        (replace-match "")
-        (if alias-info
-            (progn
-              (setq title (car alias-info))
-              (setq url (cadr alias-info)))
-          (if (string-match "\\(.*\\) +(\\(.*\\))" text)
-              (progn
-                (setq title (match-string 2 text))
-                (setq text (match-string 1 text)))))
-        (if (string= title "")
-            (setq title nil))
-        (textile-tag-insert "a" (list 'title title 'href url))
-        (insert text)
-        (textile-end-tag-insert "a")
-        (insert delimiter))))
-  (save-excursion
     (while (re-search-forward textile-inline-tag-regexp nil t)
       (textile-handle-inline-tag (match-string 1)))))
 
@@ -831,40 +835,6 @@ left or right floating, or nothing for the default of \"both\"."
                              (t "clear: both; ")))))
     (textile-error "Clear block's attribute string must be <, >, or nothing.")
     ""))
-
-(defun textile-block-alias ()
-  "Process an alias for future linking."
-  (if (looking-at "\\[\\(.*?\\)\\]\\([^\n]+\\)")
-      (let* ((alias-string (match-string 1))
-             (url-string (match-string 2))
-             (alias "")
-             (title ""))
-        (if (string-match "\\(.*\\) +(\\(.*\\))" alias-string)
-            (progn
-              (setq alias (match-string 1 alias-string))
-              (setq title (match-string 2 alias-string)))
-          (setq alias alias-string))
-        (if (member alias textile-alias-list)
-            (dotimes (i (safe-length textile-alias-list))
-              (if (and
-                   (stringp (nth i textile-alias-list))
-                   (string= (nth i textile-alias-list) alias))
-                  (setcar (nthcdr (1+ i) textile-alias-list)
-                          (if (string= title "")
-                              url-string
-                            (list title url-string)))))
-          (setq textile-alias-list
-                (cons
-                 (if (string= title "")
-                     url-string
-                   (list title url-string))
-                 textile-alias-list))
-          (setq textile-alias-list
-                (cons alias textile-alias-list)))
-        (re-search-forward "\\[.*?\\].*?\n+" nil t)
-        (replace-match "")
-        t)
-    (textile-next-paragraph)))
 
 (defun textile-block-dl (my-string attributes)
   "Handle the definition list block starting at (point).
