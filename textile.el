@@ -350,23 +350,23 @@ individual cells and rows as necessary."
       (let ((row-attributes (textile-attributes "|")))
         (textile-delete-attributes row-attributes)
         (textile-tag-insert "tr" row-attributes)
-        (while (not (looking-at "\n"))
+        (while (not (or (looking-at "\n") (eobp)))
           (let* ((cell-attributes (textile-attributes "[A-Za-z0-9.]"))
                  (header (or (plist-get row-attributes 'textile-header)
                              (plist-get cell-attributes 'textile-header))))
-            (textile-delete-attributes cell-attributes)
+            (textile-delete-attributes cell-attributes t)
             (textile-tag-insert
              (if header
                  "th"
                "td")
              cell-attributes)
-            (re-search-forward "|" nil t)
-            (replace-match "")
+            (if (re-search-forward "|" nil t)
+                (replace-match ""))
             (textile-end-tag-insert (if header
                                         "th"
                                       "td"))))
         (textile-end-tag-insert "tr")
-        (re-search-forward "\n" nil t)))))
+        (re-search-forward "\n" nil 1)))))
 
 (defun textile-inline-li ()
   "Handle inline processing of tags and list items in this block.
@@ -665,11 +665,15 @@ Any attributes that start with \"textile-\" will be ignored."
     (backward-char 1))
   (forward-char 1))
 
-(defun textile-delete-attributes (attributes)
-  "Delete textile-tagged attributes starting at (point)."
+(defun textile-delete-attributes (attributes &optional leave-last)
+  "Delete textile-tagged attributes starting at (point).
+If LEAVE-LAST is t, then don't delete the last stopping-point character."
   (delete-region (point)
                  (+ (point)
                     (plist-get attributes
-                               'textile-attrib-string-length))))
+                               'textile-attrib-string-length)
+                    (if leave-last
+                        -1
+                      0))))
 
 (provide 'textile)
