@@ -274,7 +274,7 @@ If ARG, insert string at point."
 (defun textile-string-to-list (my-string)
   "Process textile-encoded MY-STRING and return a textile list tree."
   (let ((old-eval-depth max-lisp-eval-depth))
-    (setq max-lisp-eval-depth (+ 40 max-lisp-eval-depth))
+    (setq max-lisp-eval-depth (+ 100 max-lisp-eval-depth))
     (setq textile-alias-list textile-alias-list-defaults)
     (setq textile-macros-list textile-macros-list-defaults)
     (prog1
