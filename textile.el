@@ -49,6 +49,15 @@ determining where an extended block ends.")
   "^\\(([^ ]+?)\\|\\)\\([*#]\\)[^ ]* "
   "All list block tags must match this.")
 
+(defvar textile-inline-tag-regexp
+  "\\b\\([*]\\{1,2\\}\\|[_]\\{1,2\\}\\|[+]\\{1,2\\}\\|[-]\\{1,2\\}\\|[~^%@]\\)"
+  "Should match any inline tag.")
+
+(defvar textile-inline-tag-list
+  '("*" "strong" "_" "em" "**" "b" "__" "i" "++" "big" "--" "small"
+    "-" "del" "+" "ins" "^" "sup" "~" "sub" "%" "span" "@" "code")
+  "Link textile to HTML tags for inline formatting.")
+
 (defvar textile-error-break nil
   "Break parsing Textile when hitting a parsing error?
 Do you want a total failure when you hit a textile parsing
@@ -316,7 +325,38 @@ footnotes, etc."
   (save-excursion
     (while (re-search-forward "\\[\\([0-9]+\\)\\]" nil t)
       (replace-match
-       "<sup class=\"footnote\"><a href=\"#fn\\1\">\\1</a></sup>"))))
+       "<sup class=\"footnote\"><a href=\"#fn\\1\">\\1</a></sup>")))
+  (save-excursion
+    (while (re-search-forward textile-inline-tag-regexp nil t)
+      (textile-handle-inline-tag (match-string 1))
+      (replace-match ""))))
+
+(defun textile-handle-inline-tag (tag)
+  "Given TAG, properly handle everything to the end of this tag."
+  (if (save-excursion
+        (re-search-forward (concat (regexp-quote tag) "\\b") nil t))
+      (save-excursion
+        (save-restriction
+          (narrow-to-region
+           (point)
+           (progn
+             (re-search-forward (concat (regexp-quote tag) "\\b") nil t)))
+          (let ((attributes (textile-attributes "[A-Za-z0-9]"))
+                (html-tag (textile-generate-inline-tag
+                           tag
+                           textile-inline-tag-list)))
+            (textile-delete-attributes attributes t)
+            (textile-tag-insert html-tag attributes)
+            (re-search-forward (concat (regexp-quote tag) "\\b") nil t)
+            (textile-end-tag-insert html-tag))))))
+
+(defun textile-generate-inline-tag (tag tag-list)
+  "Convert textile tag to HTML tag or return nil if no match."
+  (if tag-list
+      (if (string= tag (car tag-list))
+          (cadr tag-list)
+        (textile-generate-inline-tag tag (cddr tag-list)))
+    nil))
 
 (defun textile-inline-entities ()
   "Handle HTML entity conversion inline.
