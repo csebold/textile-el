@@ -97,7 +97,7 @@ determining where an extended block ends.")
 
 (defvar textile-inline-tag-regexp
   (concat
-   "\\(?:^\\|\s\\|[>]\\)\\("
+   "\\(?:^\\| \\|[>]\\)\\("
    "[*]\\{1,2\\}\\|[_]\\{1,2\\}\\|[+]\\{1,2\\}\\|[-]\\{1,2\\}\\|[~^%@]"
    "\\|\\?\\?\\|=="
    "\\)")
@@ -566,7 +566,7 @@ footnotes, etc."
   "Given TAG, properly handle everything to the end of this tag."
   (if (save-excursion
         (re-search-forward (concat (regexp-quote tag)
-                                   "\\(?:$\\|\s\\|[<,;:!?.]\\)") nil t))
+                                   "\\(?:$\\| \\|[<,;:!?.]\\)") nil t))
       (progn
         (delete-region (- (point) (length tag)) (point))
         (save-excursion
@@ -575,7 +575,7 @@ footnotes, etc."
              (point)
              (save-excursion
                (re-search-forward (concat (regexp-quote tag)
-                                          "\\(?:$\\|\s\\|[<,;:!?.]\\)") nil t)
+                                          "\\(?:$\\| \\|[<,;:!?.]\\)") nil t)
                (point)))
             (if (not (string= tag "=="))
                 (let ((attributes (textile-attributes))
@@ -586,10 +586,10 @@ footnotes, etc."
                   (textile-tag-insert html-tag attributes)
                   (re-search-forward (concat
                                       (regexp-quote tag)
-                                      "\\($\\|\s\\|[<,;:!?.]\\)") nil t)
+                                      "\\($\\| \\|[<,;:!?.]\\)") nil t)
                   (replace-match (concat "</" html-tag ">\\1")))
               (re-search-forward (concat (regexp-quote tag)
-                                         "\\($\\|\s\\|[<,;:!?.]\\)") nil t)
+                                         "\\($\\| \\|[<,;:!?.]\\)") nil t)
               (replace-match "\\1")))))))
 
 (defun textile-generate-inline-tag (tag tag-list)
@@ -841,49 +841,48 @@ HTML-formatted this table."
   (if (plist-get attributes 'textile-extended)
       (textile-error "Extended <table> block doesn't make sense."))
   (setq attributes (plist-put attributes 'textile-tag "table"))
-  (setq Textile-in-table t) ; where do I unset it though?
-  (let ((my-row-list
-         (reverse (cdr (reverse
-                        (split-string my-string "| *\\(?:\n\\|$\\)"))))))
+  (let ((my-row-list (split-string my-string " *| *\\(?:\n\\|$\\)")))
     (append
-     (mapcar
-      (function
-       (lambda (this-string)
-         (let* ((my-cell-list (split-string this-string "|"))
-                (row-attributes (car my-cell-list))
-                (my-cell-list (cdr my-cell-list)))
-           (setq row-attributes (plist-put row-attributes 'textile-tag "tr"))
-           (list
-            (mapcar (function
-                     (lambda (this-cell)
-                       (let* ((cell-attributes (textile-attributes "[.] +"
-                                                                   this-cell))
-                              (header (or (plist-get row-attributes
-                                                     'textile-header)
-                                          (plist-get cell-attributes
-                                                     'textile-header))))
-                         (if (string-match
-                              (concat "^" (regexp-quote
-                                           (plist-get cell-attributes
-                                                      'textile-attrib-string)))
-                              this-cell)
-                             (setq this-cell (replace-match "" nil nil
-                                                            this-cell)))
-                         (setq cell-attributes (plist-put cell-attributes
-                                                          'textile-tag
-                                                          (if header
-                                                              "th"
-                                                            "td")))
-                         (list (textile-inline-to-list this-cell)
-                               cell-attributes))))
-                    my-cell-list) row-attributes))))
-      my-row-list) (list attributes))))
+     (mapcar 'textile-table-row-process my-row-list) (list attributes))))
 ;;     (textile-tag-insert "table" attributes)
 ;;     (makunbound 'Textile-in-table-outer-tag)
 ;;     (textile-process-table-block)
 ;;     (textile-end-of-paragraph)
 ;;     (textile-end-tag-insert "table")
 ;;     (textile-next-paragraph)))
+
+(defun textile-table-row-process (this-string)
+  (let* ((my-cell-list (split-string this-string " *| *"))
+         (row-attributes (textile-attributes " " (car my-cell-list)))
+         (my-cell-list (cdr my-cell-list)))
+    (setq Textile-in-table t) ; where do I unset it though?
+    (setq row-attributes (plist-put row-attributes 'textile-tag "tr"))
+    (append (mapcar 'textile-table-cell-process my-cell-list)
+          (list row-attributes))))
+
+(defun textile-table-cell-process (this-cell)
+  (let* ((cell-attributes (textile-attributes "[.] +"
+                                              this-cell))
+         (header
+;          (or (plist-get row-attributes
+;                         'textile-header)
+              (plist-get cell-attributes
+                         'textile-header)))
+;           )
+    (if (string-match
+         (concat "^" (regexp-quote
+                      (plist-get cell-attributes
+                                 'textile-attrib-string)))
+         this-cell)
+        (setq this-cell (replace-match "" nil nil
+                                       this-cell)))
+    (setq cell-attributes (plist-put cell-attributes
+                                     'textile-tag
+                                     (if header
+                                         "th"
+                                       "td")))
+    (list (textile-inline-to-list this-cell)
+          cell-attributes)))
 
 (defun textile-block-escape ()
   "Handle the escaped block starting at (point).
