@@ -26,6 +26,48 @@
 ; Note - in comments, DA = Dean Allen (original author of PHP Textile),
 ; BC = Brad Choate (implemented Textile v2 in Perl for Movable Type)
 
+; To use textile.el, put this file into your load path, and put the
+; following into your .emacs file:
+;
+; (require 'textile)
+;
+; At this time Textile markup is only documented at
+; <http://www.textism.com/tools/textile/> and
+; <http://bradchoate.com/mt/docs/mtmanual_textile2.html>, so to
+; understand how to write Textile code, for now you should check those
+; web sites.  In the future there will be a Texinfo manual detailing the
+; format that comes with textile.el.
+;
+; In a buffer with Textile markup, you can run:
+;
+;   M-x textile-buffer RET
+;
+; and have the entire buffer processed by Textile, which (by default)
+; will create a new buffer with valid XHTML markup in it.  If you want
+; the returned XHTML in the same buffer as the old code, you can change
+; textile-output-to-new-buffer to nil (it defaults to t).  You can also
+; call textile-region in similar fashion.  If you want to use textile.el
+; in your own Emacs Lisp programs, you can pass a string to
+; textile-string and it will return XHTML in another string.
+;
+; Standard Textile behavior is to treat newlines in the middle of a
+; block (like a paragraph) as intentional newlines, and it replaces them
+; with <br /> when it sees them.  To change this behavior so that you
+; can edit Textile text with auto-fill-mode on, you can either load
+; longlines.el (found elsewhere) or you can change
+; textile-br-all-newlines to nil (it defaults to t).  It is hard to
+; guarantee that textile.el will always do the right thing if you change
+; textile-br-all-newlines, and you may find it difficult in some cases
+; to enter a manual linebreak unless you escape it with ==; the best
+; thing to do is either edit without auto-fill-mode or use longlines,
+; but I will try to keep textile-br-all-newlines working as expected
+; when possible (because I like auto-fill-mode).
+;
+; Do NOT send bug reports on textile.el to Dean Allen or Brad Choate;
+; they had nothing to do with the Emacs implementation.  Send bug
+; reports to textile-bug@livingtorah.org, preferably along with sample
+; text and some description of what you expected to see.
+
 (defvar textile-version "Textile.el v0.97"
   "Version number for textile.el.")
 
@@ -62,7 +104,7 @@ determining where an extended block ends.")
           textile-block-tag-regexp-end))
 
 (defvar textile-list-tag-regexp
-  ; FIXME - adapt code for table rows to this regexp for lists
+  ; FIXME - adapt code for table rows to this regexp for lists?
   "^\\(([^ ]+?)\\|\\)\\([*#]+\\)[^ ]* "
   "All list block tags must match this.")
 
@@ -388,8 +430,8 @@ If ARG, insert string at point."
         (setq my-list (mapcar 'textile-decode-tags my-list))
         (setq my-list (mapcar 'textile-process-image my-list))
         (setq my-list (mapcar 'textile-process-footnote my-list))
-        (setq my-list (mapcar 'textile-process-acronym my-list))
         (setq my-list (mapcar 'textile-process-link my-list))
+        (setq my-list (mapcar 'textile-process-acronym my-list))
         (setq my-list (mapcar 'textile-process-auto-link my-list))
         (setq my-list (mapcar 'textile-process-ampersand my-list))
     ; from this point on there will be no more converting ampersands
@@ -482,31 +524,48 @@ If ARG, insert string at point."
 
 (defun textile-process-acronym (my-string)
   "Process all acronyms in a given string or list of strings."
-  (textile-skip-tags 'textile-process-acronym my-string
-    (if (string-match "\\<\\([A-Z]\\{3,\\}\\)\\((\\(.*?\\))\\|\\)" my-string)
-        ; FIXME: W3C doesn't work, can a regexp have at least one but
-        ; not all numbers?
-        (if (not (equal (match-beginning 0) 0))
-            (list (substring my-string 0 (match-beginning 0))
-                  (textile-process-acronym (substring my-string
+  (if (and (listp my-string)
+           (listp (car (last my-string)))
+           (textile-get-attributes my-string)
+           (plist-get (textile-get-attributes my-string) 'textile-tag)
+           (or (string=
+                (plist-get (textile-get-attributes my-string) 'textile-tag)
+                "acronym")
+               (and
+                (string=
+                 (plist-get (textile-get-attributes my-string) 'textile-tag)
+                 "span")
+                (string=
+                 (plist-get (textile-get-attributes my-string) 'textile-tag)
+                 "caps"))))
+      my-string
+    (textile-skip-tags
+     'textile-process-acronym
+     my-string
+     (if (string-match
+          "\\<\\([A-Z]\\{3,\\}\\|[0-9][A-Z]\\{2,\\}\\|[A-Z][0-9A-Z]\\{2,\\}\\)\\((\\(.*?\\))\\|\\)"
+          my-string)
+         (if (not (equal (match-beginning 0) 0))
+             (list (substring my-string 0 (match-beginning 0))
+                   (textile-process-acronym (substring my-string
                                                        (match-beginning 0)))
-                  (plist-put nil 'textile-tag nil))
-          (if (not (equal (match-end 0) (length my-string)))
-              (list (save-match-data
-                      (textile-process-acronym (substring my-string
+                   (plist-put nil 'textile-tag nil))
+           (if (not (equal (match-end 0) (length my-string)))
+               (list (save-match-data
+                       (textile-process-acronym (substring my-string
                                                            (match-beginning 0)
                                                            (match-end 2))))
-                    (textile-process-acronym (substring my-string
+                     (textile-process-acronym (substring my-string
                                                          (match-end 2)))
-                    (plist-put nil 'textile-tag nil))
-            (list
-             (match-string 1 my-string)
-             (if (match-string 3 my-string)
-                 (plist-put (plist-put 'nil 'title (match-string 3 my-string))
-                            'textile-tag "acronym")
-               (plist-put (plist-put 'nil 'class "caps")
-                          'textile-tag "span")))))
-      my-string)))
+                     (plist-put nil 'textile-tag nil))
+             (list
+              (match-string 1 my-string)
+              (if (match-string 3 my-string)
+                  (plist-put (plist-put 'nil 'title (match-string 3 my-string))
+                             'textile-tag "acronym")
+                (plist-put (plist-put 'nil 'class "caps")
+                           'textile-tag "span")))))
+       my-string))))
 
 (defun textile-encode-manual (my-string)
   "Tokenize manual HTML tags."
