@@ -536,11 +536,11 @@ supposed to be preformatted."
 
 (defun textile-non-ascii-to-unicode (string)
   "Convert STRING to Unicode entities."
-  (let ((unicode-string (encode-coding-string string 'utf-16))
+  (let ((unicode-string (encode-coding-string string 'utf-16-be))
         (unicode-values nil)
         (output ""))
     (setq unicode-values (mapcar 'string-to-char
-                                    (nthcdr 3
+                                    (nthcdr 2
                                             (split-string
                                              unicode-string ""))))
     (while (cdr unicode-values)
@@ -942,15 +942,17 @@ HTML-formatted this table."
     (textile-error "Extended <table> block doesn't make sense.")
     (setq attributes (plist-put attributes 'textile-extended nil)))
   (setq attributes (plist-put attributes 'textile-tag "table"))
-  (let ((my-row-list (textile-all-but-last
-                      (split-string my-string " *| *\\(?:\n\\|$\\)"))))
+  (let ((my-row-list (split-string my-string " *| *\\(?:\n\\|$\\)")))
     (append
      (mapcar 'textile-table-row-process my-row-list) (list attributes))))
 
 (defun textile-table-row-process (this-string)
-  (let* ((my-cell-list (split-string this-string " *| *"))
-         (row-attributes (textile-attributes " " (car my-cell-list) 'table))
-         (my-cell-list (cdr my-cell-list)))
+  (let* ((row-attributes (textile-attributes " " this-string 'table))
+         (this-string (substring this-string
+                                 (length
+                                  (plist-get row-attributes
+                                             'textile-attrib-string))))
+         (my-cell-list (split-string this-string " *| *")))
     (setq row-attributes (plist-put row-attributes 'textile-tag "tr"))
     (if (plist-get row-attributes 'textile-header)
         (setq Textile-in-header-row t))
