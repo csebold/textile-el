@@ -287,7 +287,26 @@ like that).")
               (textile-append-block this-item (car my-list))
               (setq my-list (cdr my-list))))
         (push this-item new-list)))
-    (reverse new-list)))
+    (setq new-list (reverse new-list))
+    (while new-list
+      (let* ((this-item (car new-list))
+             (my-attr (car (last this-item)))
+             (clear-info (plist-get my-attr 'next-block-clear)))
+        (setq new-list (cdr new-list))
+        (if clear-info
+            (if new-list
+                (progn
+                  (setq this-item (reverse (car new-list)))
+                  (setq my-attr (plist-put (car this-item) 'style
+                                           (concat (plist-get (car this-item)
+                                                              'style)
+                                                   clear-info)))
+                  (setcar this-item my-attr)
+                  (push (reverse this-item) my-list)
+                  (setq new-list (cdr new-list))))
+          (push this-item my-list))))
+    (reverse my-list)))
+;    (reverse new-list)))
 
 (defun textile-compile-string (my-list)
   "Convert textile tree to XHTML string."
