@@ -253,7 +253,7 @@ If ARG, insert string at point."
     "Split MY-STRING by SEPARATOR and don't return empty substrings."
     (split-string my-string separator)))
 
-(defun textile-string-to-list (my-string)
+(defun textile-string-to-list-old (my-string)
   "Process textile-encoded MY-STRING and return a textile list tree."
   (let ((old-eval-depth max-lisp-eval-depth))
     (setq max-lisp-eval-depth (+ 200 max-lisp-eval-depth))
@@ -269,6 +269,51 @@ If ARG, insert string at point."
                                                  (textile-process-aliases
                                                   my-string))) "\n\n+")))))
           (delete "" (mapcar 'textile-block-to-list blocks)))
+      (setq max-lisp-eval-depth old-eval-depth))))
+
+(defun textile-string-to-list (my-string)
+  "Process textile-encoded MY-STRING and return a textile list tree."
+  (let ((old-eval-depth max-lisp-eval-depth))
+    (setq max-lisp-eval-depth (+ 10 max-lisp-eval-depth))
+    (setq textile-alias-list textile-alias-list-defaults)
+    (setq textile-macros-list textile-macros-list-defaults)
+    (prog1
+        (let ((new-list nil))
+          (with-temp-buffer
+            (insert my-string)
+            (while (not (equal (point-min) (point-max)))
+              (goto-char (point-min))
+              (cond
+               ((looking-at "^==>? *\n")
+                (replace-match "")
+                (if (string-match ">" (match-string 0))
+                ; what is the end delimiter for ==>?  Not sure yet, FIXME
+                    (if (not (re-search-forward "^-\\{3,\\} *\n" nil t))
+                        (re-search-forward "\n\n" nil t))
+                  (if (not (re-search-forward "^== *\\(\n\n\\)?" nil t))
+                      (goto-char (point-max))))
+                (push (buffer-substring (point-min) (point)) new-list)
+                (delete-region (point-min) (point)))
+               ((looking-at (textile-this-block-tag-regexp "bc"))
+                (let ((end-of-block
+                       (catch 'found-next-block
+                         (while (re-search-forward "\n\n" nil t)
+                           (when (save-match-data
+                                   (looking-at textile-any-block-tag-regexp))
+                             (replace-match "")
+                             (throw 'found-next-block (point))))
+                         (point))))
+                  (push (buffer-substring (point-min) end-of-block) new-list)
+                  (delete-region (point-min end-of-block))))
+               (t
+                (if (re-search-forward "\n\n" nil t)
+                    (progn
+                      (replace-match "")
+                      (push (buffer-substring (point-min) (point)) new-list)
+                      (delete-region (point-min) (point)))
+                  (push (buffer-string) new-list)
+                  (delete-region (point-min) (point-max)))))))
+          (reverse new-list))
       (setq max-lisp-eval-depth old-eval-depth))))
 
 (defun textile-process-elisp (my-string)
