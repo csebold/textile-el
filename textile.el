@@ -130,47 +130,71 @@ like that).")
 
 (defun textile-string-to-list (my-string)
   "Process textile-encoded MY-STRING and return a textile list tree."
-  (let ((blocks (split-string my-string "\n\n")))
+  (let ((blocks (textile-escape-blocks (split-string my-string "\n\n"))))
     (delete "" (mapcar 'textile-block-to-list blocks))))
+
+(defun textile-escape-blocks (my-list)
+  "In a list of block strings, bring escaped blocks together."
+  (let ((new-list nil))
+    (while my-list
+      (let* ((this-item (car my-list)))
+        (setq my-list (cdr my-list))
+        (if (string-match "^== *\n" this-item)
+            (let* ((escape-block (replace-match "" nil nil this-item))
+                   (hit-end (string-match "\n== *$" escape-block)))
+              (if hit-end
+                  (setq escape-block (replace-match "" nil nil escape-block)))
+              (while (and my-list (not hit-end))
+                (when (string-match "\n== *$" (car my-list))
+                  (setq hit-end t))
+                (setq escape-block (concat escape-block "\n\n"
+                                           (replace-match "" nil nil
+                                                          (car my-list))))
+                (setq my-list (cdr my-list)))
+              (push (list escape-block (list 'textile-tag nil)) new-list))
+          (push this-item new-list))))
+    (reverse new-list)))
 
 (defun textile-block-to-list (my-string)
   "Process textile-encoded MY-STRING and return a textile block tree."
-  (let ((my-plist (plist-put nil 'textile-explicit t)))
-    (cond
-     ; test for block tags
-     ((string-match "^clear[<>]?\\. *$" my-string)
-      (setq my-string (textile-block-clear my-string)))
-     ((string-match "^.*?|.*| *$" my-string)
-      (textile-block-table my-string nil))
-     ((string-match textile-block-tag-regexp my-string)
-      (let* ((tag (match-string 1 my-string))
-             (attributes (textile-attributes " " (match-string 2 my-string)))
-             (extended (string= (match-string 3 my-string) ".."))
-             (my-function
-              (car (read-from-string (concat "textile-block-" tag)))))
-        (setq attributes (plist-put attributes 'textile-extended extended))
-        (setq attributes (plist-put attributes 'textile-explicit t))
-        (cond
-         ((fboundp my-function)
-          (funcall my-function my-string attributes))
-         ((string-match "^h[1-6]$" tag)
-          (setq attributes (plist-put attributes 'textile-hlevel
-                                      (substring tag 1 2)))
-          (textile-block-header my-string attributes))
-         ((string-match "^fn[0-9]+$" tag)
-          (setq attributes (plist-put attributes 'textile-fn-num
-                                      (substring tag 2)))
-          (setq attributes (plist-put attributes 'class "footnote"))
-          (setq attributes (plist-put attributes 'id tag))
-          (textile-block-footnote my-string attributes))
-         (t
-          (setq my-plist (plist-put my-plist 'textile-tag "p"))
-          (setq my-plist (plist-put my-plist 'textile-explicit nil))
-          (list (textile-inline-to-list my-string) my-plist)))))
-     (t
-      (setq my-plist (plist-put my-plist 'textile-tag "p"))
-      (setq my-plist (plist-put my-plist 'textile-explicit nil))
-      (list (textile-inline-to-list my-string) my-plist)))))
+  (if (listp my-string)
+      my-string
+    (let ((my-plist (plist-put nil 'textile-explicit t)))
+      (cond
+                                        ; test for block tags
+       ((string-match "^clear[<>]?\\. *$" my-string)
+        (setq my-string (textile-block-clear my-string)))
+       ((string-match "^.*?|.*| *$" my-string)
+        (textile-block-table my-string nil))
+       ((string-match textile-block-tag-regexp my-string)
+        (let* ((tag (match-string 1 my-string))
+               (attributes (textile-attributes " " (match-string 2 my-string)))
+               (extended (string= (match-string 3 my-string) ".."))
+               (my-function
+                (car (read-from-string (concat "textile-block-" tag)))))
+          (setq attributes (plist-put attributes 'textile-extended extended))
+          (setq attributes (plist-put attributes 'textile-explicit t))
+          (cond
+           ((fboundp my-function)
+            (funcall my-function my-string attributes))
+           ((string-match "^h[1-6]$" tag)
+            (setq attributes (plist-put attributes 'textile-hlevel
+                                        (substring tag 1 2)))
+            (textile-block-header my-string attributes))
+           ((string-match "^fn[0-9]+$" tag)
+            (setq attributes (plist-put attributes 'textile-fn-num
+                                        (substring tag 2)))
+            (setq attributes (plist-put attributes 'class "footnote"))
+            (setq attributes (plist-put attributes 'id tag))
+            (textile-block-footnote my-string attributes))
+           (t
+            (setq my-plist (plist-put my-plist 'textile-tag "p"))
+            (setq my-plist (plist-put my-plist 'textile-explicit nil))
+            (list (textile-inline-to-list my-string) my-plist)))))
+       (t
+        (setq my-plist (plist-put my-plist 'textile-tag "p"))
+        (setq my-plist (plist-put my-plist 'textile-explicit nil))
+        (list (textile-inline-to-list my-string) my-plist))))))
 
 (defun textile-inline-to-list (my-string)
   "Process textile-encoded MY-STRING and return a textile inline tree."
@@ -1115,10 +1139,11 @@ Any attributes that start with \"textile-\" will be ignored."
 
 (defun textile-enclose-tag (my-string my-plist)
   "Enclose MY-STRING in a tag generated from information in MY-PLIST."
-  (concat "<" (plist-get my-plist 'textile-tag)
-          (textile-generate-attribute-string my-plist) ">"
-          my-string "</" (plist-get my-plist 'textile-tag) ">"))
-
+  (if (plist-get my-plist 'textile-tag)
+      (concat "<" (plist-get my-plist 'textile-tag)
+              (textile-generate-attribute-string my-plist) ">"
+              my-string "</" (plist-get my-plist 'textile-tag) ">")
+    my-string))
 
 ;; (defun textile-end-tag-insert (tag)
 ;;   "Close the HTML tag corresponding to TAG."
