@@ -68,7 +68,7 @@
 ; reports to textile-bug@livingtorah.org, preferably along with sample
 ; text and some description of what you expected to see.
 
-(defvar textile-version "Textile.el v0.98"
+(defvar textile-version "Textile.el v0.99.0"
   "Version number for textile.el.")
 
 (defvar textile-block-tag-regexp-start "^\\("
@@ -341,7 +341,7 @@ If ARG, insert string at point."
                    (extended-p (match-string 3 this-item))
                    (code-block (replace-match "" nil nil this-item))
                    (hit-end nil))
-              (if extended-p
+              (if (string= extended-p "..")
                   (while (and my-list (not hit-end))
                     (if (or (not (stringp (car my-list)))
                             (string-match textile-any-block-tag-regexp
