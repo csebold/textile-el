@@ -100,7 +100,7 @@ determining where an extended block ends.")
    "\\(?:^\\|\\W\\)\\("
    "[_]\\{1,2\\}\\|[+]\\{1,2\\}\\|[-]\\{1,2\\}\\|[~^%@]"
    "\\|\\?\\?\\|[*]\\{1,2\\}"
-   "\\)\\([^\000]+?\\)\\(\\1\\)\\(?:\\W\\|$\\)")
+   "\\)\\([^\000]+?\\)\\(\\1\\)\\(?:$\\|\\W\\)")
   "Should match any inline tag.")
 
 (defvar textile-inline-tag-list
@@ -592,7 +592,7 @@ like that).")
                       (textile-process-inline (substring my-string
                                                          (match-beginning 1))))
                     (plist-put nil 'textile-tag nil))
-            (if (not (equal (match-end 0) (length my-string)))
+            (if (not (equal (match-end 3) (length my-string)))
                 (list (save-match-data
                         (textile-process-inline (substring my-string
                                                            (match-beginning 1)
