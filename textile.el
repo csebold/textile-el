@@ -156,11 +156,11 @@ like that).")
                          "content=\"text/html; charset="))
     (unless charset
       (setq charset "iso-8859-1"))
-    (setq output (concat output charset "\"\n"))
+    (setq output (concat output charset "\" />\n"))
     (setq output (concat output "<meta name=\"generator\" content=\""
                          textile-version ", " (car (textile-split-string
                                                     (emacs-version) "\n"))
-                         "\">\n"))
+                         "\" />\n"))
     (while headers
       (setq output (concat output (car headers) "\n"))
       (setq headers (cdr headers)))
