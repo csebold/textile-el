@@ -262,6 +262,7 @@ like that).")
       (setq my-list (mapcar 'textile-process-footnote my-list))
       (setq my-list (mapcar 'textile-process-acronym my-list))
       (setq my-list (mapcar 'textile-process-inline my-list))
+      (setq my-list (mapcar 'textile-process-image my-list))
       (setq my-list (mapcar 'textile-process-link my-list))
       (setq my-list (mapcar 'textile-process-ampersand my-list))
     ; from this point on there will be no more converting ampersands
@@ -459,6 +460,80 @@ like that).")
               (plist-put 'nil 'textile-tag "sup")
               'class "footnote"))))
       my-string)))
+
+(defun textile-process-image (my-string)
+  "Process all images in a given string or list of strings."
+  (if (listp my-string)
+      (if (member 'textile-tag my-string)
+          my-string
+        (mapcar 'textile-process-link my-string))
+    (if (string-match
+         "!\\([^!]+?\\) *\\((\\(.*?\\))\\)?!\\(?::\\([^ ]*?\\)\\([,.;:]?\\(?: \\|$\\)\\)\\)?" my-string)
+        (if (not (equal (match-beginning 0) 0))
+            (list (substring my-string 0 (match-beginning 0))
+                  (textile-process-image (substring my-string
+                                                    (match-beginning 0)))
+                  (plist-put nil 'textile-tag nil))
+          (if (not (equal (match-end 0) (length my-string)))
+              (list (save-match-data
+                      (textile-process-image (substring my-string
+                                                        (match-beginning 0)
+                                                        (match-end 0))))
+                    (textile-process-image (substring my-string
+                                                      (match-end 0)))
+                    (plist-put nil 'textile-tag nil))
+            (let* ((image-data (match-string 1 my-string))
+                   (title (match-string 3 my-string))
+                   (url (match-string 4 my-string))
+                   (delimiter (match-string 5 my-string))
+                   (alias-info (textile-alias-to-url url textile-alias-list)))
+              (if url
+                  (let ((link-title nil))
+                    (if alias-info
+                        (progn
+                          (setq link-title (car alias-info))
+                          (setq url (cadr alias-info))))
+                    (if (string= link-title "")
+                        (setq link-title nil))
+                    (list (list (textile-string-to-image image-data title)
+                                (plist-put
+                                 (plist-put
+                                  (plist-put nil 'textile-tag "a")
+                                  'href (textile-process-ampersand url))
+                                 'title link-title)) delimiter
+                                 (plist-put nil 'textile-tag nil)))
+                (textile-string-to-image image-data title)))))
+      my-string)))
+
+(defun textile-string-to-image (my-string title)
+  "Process MY-STRING and return an inline image tree."
+  (let* ((attributes (textile-attributes "[^})]]" my-string 'image))
+         (my-string (substring my-string
+                               (length (plist-get attributes
+                                                  'textile-attrib-string))))
+         (my-list (split-string my-string " "))
+         (my-dimensions (if (cadr my-list)
+                            (split-string (cadr my-list) "x")
+                          nil)))
+    (setq attributes (plist-put attributes 'textile-tag "img"))
+    (setq attributes (plist-put attributes 'title title))
+    (setq attributes (plist-put attributes 'src (car my-list)))
+    (if (> (safe-length my-dimensions) 1)
+        (progn
+          (setq attributes (plist-put attributes 'width (car my-dimensions)))
+          (setq attributes (plist-put attributes 'height
+                                      (cadr my-dimensions))))
+      (dolist (this-parm (cdr my-list))
+        (if (string-match "w$" this-parm)
+            (setq attributes (plist-put attributes 'width
+                                        (substring this-parm 0
+                                                   (- (length this-parm) 1))))
+          (if (string-match "h$" this-parm)
+              (setq attributes (plist-put attributes 'height
+                                          (substring this-parm 0
+                                                     (- (length this-parm)
+                                                        1))))))))
+    (list "" attributes)))
 
 (defun textile-process-link (my-string)
   "Process all links in a given string or list of strings."
@@ -721,10 +796,19 @@ or STOP-REGEXP."
                   (equal this-char ?^ ))
              (setq valign "top")
              (forward-char 1))
+            ((and (memq 'image context)
+                  (equal this-char ?^ ))
+             (setq style (concat style "vertical-align: text-top; ")))
             ((and (memq 'table context)
                   (equal this-char ?\~))
              (setq valign "bottom")
              (forward-char 1))
+            ((and (memq 'image context)
+                  (equal this-char ?\~ ))
+             (setq style (concat style "vertical-align: text-bottom; ")))
+            ((and (memq 'image context)
+                  (equal this-char ?-))
+             (setq style (concat style "vertical-align: middle; ")))
             ((and (memq 'table context)
                   (looking-at "[\\]\\([0-9]+\\)"))
              (setq colspan (match-string 1))
@@ -1116,14 +1200,11 @@ continue."
 (defun textile-region (start end)
   "Call textile-code-to-blocks on region from point to mark."
   (interactive "r")
-  (let ((current-case-fold-search case-fold-search))
-    (setq case-fold-search nil)
-    (save-excursion
-      (let ((my-string (buffer-substring start end)))
-        (delete-region start end)
-        (goto-char start)
-        (insert (textile-string my-string))))
-    (setq case-fold-search current-case-fold-search)))
+  (save-excursion
+    (let ((my-string (buffer-substring start end)))
+      (delete-region start end)
+      (goto-char start)
+      (insert (textile-string my-string)))))
 
 (defun textile-buffer ()
   "Call textile-code-to-blocks on the entire buffer."
@@ -1132,7 +1213,11 @@ continue."
 
 (defun textile-string (my-string)
   "Process MY-STRING, return XHTML-encoded string."
-  (textile-list-to-blocks (textile-string-to-list my-string)))
+  (let ((current-case-fold-search case-fold-search))
+    (setq case-fold-search nil)
+    (prog1
+        (textile-list-to-blocks (textile-string-to-list my-string))
+      (setq case-fold-search current-case-fold-search))))
 
 (defun textile-generate-attribute-string (my-plist)
   "Generate an attribute string based on MY-PLIST.
@@ -1150,10 +1235,17 @@ Any attributes that start with \"textile-\" will be ignored."
 
 (defun textile-enclose-tag (my-string my-plist)
   "Enclose MY-STRING in a tag generated from information in MY-PLIST."
-  (if (plist-get my-plist 'textile-tag)
-      (concat "<" (plist-get my-plist 'textile-tag)
-              (textile-generate-attribute-string my-plist) ">"
-              my-string "</" (plist-get my-plist 'textile-tag) ">")
-    my-string))
+  ; FIXME - handle empty tags like <img />
+  (let ((my-tag (plist-get my-plist 'textile-tag)))
+    (if my-tag
+      (cond
+       ((string= my-tag "img")
+        (concat "<img" (textile-generate-attribute-string my-plist)
+                " />"))
+       (t
+        (concat "<" (plist-get my-plist 'textile-tag)
+                (textile-generate-attribute-string my-plist) ">"
+                my-string "</" (plist-get my-plist 'textile-tag) ">")))
+      my-string)))
 
 (provide 'textile)
