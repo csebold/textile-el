@@ -870,12 +870,24 @@ HTML-formatted this definition list."
         (if (string-match "^\\([#*]+\\)" my-string)
             (let ((my-start-level (length (match-string 1 my-string)))
                   (my-list (split-string my-string "\n")))
+              (setq my-list (textile-unsplit-list-newlines my-list))
               (setq my-list (textile-organize-lists my-start-level my-list))
               (textile-process-li my-list)))
       (list (textile-inline-to-list my-string)
             (plist-put
              (plist-put nil 'textile-tag "p")
              'textile-explicit nil)))))
+
+(defun textile-unsplit-list-newlines (my-list)
+  "If any list items don't start with the list tag regexp, join to previous."
+  (let ((new-list nil))
+    (dolist (this-item my-list)
+      (if (string-match textile-list-tag-regexp this-item)
+          (push this-item new-list)
+        (setcar new-list
+                (concat (car new-list)
+                        "\n" this-item))))
+    (reverse new-list)))
 
 (defun textile-process-li (my-list)
   (let ((first-string-pos 0))
