@@ -8,7 +8,7 @@
       (beginning-of-buffer)
       (while (not (equal (point)
                          (save-excursion
-                           (end-of-buffer)
+                           (re-search-forward "^\n" nil t)
                            (point))))
         (let ((this-block-type "p")
               (this-block-tag "p")
@@ -17,8 +17,8 @@
               (this-block-id ""))
           (narrow-to-region (point)
                             (save-excursion
-                              (forward-paragraph 1)
-                              (re-search-forward "\n\n" nil t)
+                              (re-search-forward "^\n" nil t)
+                              (backward-char 2)
                               (point)))
           (beginning-of-buffer)
           (while (looking-at "\n")
@@ -64,7 +64,7 @@
           (insert (concat (if (string= this-block-type "bc")
                               "</code>") "</" this-block-tag ">"))
           (widen)
-          (forward-paragraph 1)))
+          (re-search-forward "^\n" nil t)))
       (buffer-string))))
 
 (defun textile-region (start end)
