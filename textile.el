@@ -1011,13 +1011,21 @@ or STOP-REGEXP."
 
 (defun textile-non-ascii-to-unicode (string)
   "Convert STRING to Unicode entities."
-  ; this assumes that 'utf-16-be is a big-endian Unicode with signature,
-  ; and the (nthcdr 2 ...) bit removes the signature.  This works with
-  ; Emacs 21.3; this may need to be reworked for other versions of Emacs
-  ; 21 (it would appear that 21.4 and future versions will have a coding
-  ; system without the signature available; in those versions this code
-  ; does not yet work as expected).  FIXME
   (cond
+   ((coding-system-p 'utf-16be) ; Emacs 21.4
+    (let ((unicode-string (encode-coding-string string
+                                                'utf-16be))
+          (unicode-values nil)
+          (output ""))
+      (setq unicode-values (mapcar 'string-to-char (split-string
+                                                    unicode-string "")))
+      (while (cdr unicode-values)
+        (setq output (concat output "&#" (number-to-string
+                                          (+ (* (car unicode-values) 256)
+                                             (cadr unicode-values)))
+                             ";"))
+        (setq unicode-values (cddr unicode-values)))
+      output))
    ((coding-system-p 'utf-16-be) ; Emacs 21.3
     (let ((unicode-string (encode-coding-string string 'utf-16-be))
           (unicode-values nil)
