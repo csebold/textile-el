@@ -1704,4 +1704,20 @@ Any attributes that start with \"textile-\" will be ignored."
                 my-string "</" (plist-get my-plist 'textile-tag) ">")))
       my-string)))
 
+; functions to support batch mode (for CGI operation, perhaps)
+
+(defun textile-batch-read ()
+  "Read file from STDIN."
+  (read-from-minibuffer ""))
+
+(defun textile-batch-write (arg)
+  "Write output to STDOUT."
+  (send-string-to-terminal arg))
+
+(when noninteractive
+  (let ((input-string ""))
+    (while (setq current-line (textile-batch-read))
+      (setq input-string (concat input-string current-line)))
+    (textile-batch-write (textile-string input-string))))
+
 (provide 'textile)
