@@ -115,12 +115,22 @@ a list whose car is the title and cadr is the URL.")
 (defvar textile-macros-list-defaults
   '("->" "&#8594;" "(C)" "&#169;" "(R)" "&#174;" "(TM)" "&#8482;"
     "\\(^\\| \\)--\\( \\|$\\)" "\\1&#8212;\\2" "<-" "&#8592;"
-    "\\(^\\| \\)-\\( \\|$\\)" "\\1&#8211;\\2" "\\.\\.\\." "&#8230;"
-    ; following this is the beginning attempt at quote education
-    "\\(\\w\\)'\\(\\w\\)" "\\1&#8217;\\2" ; word-apostrophe-s
+    "\\(^\\| \\)-\\( \\|$\\)" "\\1&#8211;\\2"
+    "\\.\\( ?\\)\\.\\1\\." "&#8230;")
+  "Code to be automatically converted to HTML entities or other things.")
+
+(defvar textile-smart-quotes-list
+  '("\\(\\w\\)'\\(\\w\\)" "\\1&#8217;\\2" ; word-apostrophe-letter
+    "\\([^ ]\\)'s" "\\1&#8217;s" ; special case apostrophe-s
     "'\\([0-9]\\{2\\}s\\)" "&#8217;\\1" ; decades like the '80s
+    " \"" " &#8220;" ; any double-quote preceded by a space
+    " '" " &#8216;" ; any single-quote preceded by a space
+    "\"\\( \\|$\\)" "&#8221;\\1" ; any double-quote followed by space
+    "'\\( \\|$\\)" "&#8217;\\1" ; any single-quote followed by space
     "\\`\"\\|\"\\b" "&#8220;" "\\b\"\\|\"\n\\|\"\\'" "&#8221;"
-    "\\`'\\|'\\b" "&#8216;" "\\b'\\|'\n\\|'\\'" "&#8217;")
+    "\\`'\\|'\\b" "&#8216;" "\\b'\\|'\n\\|'\\'" "&#8217;"
+    "&#8220;'" "&#8220;&#8216;" "&#8216;\"" "&#8216;&#8220;"
+    "'&#8221;" "&#8217;&#8221;" "\"&#8217;" "&#8221;&#8217;")
   "Code to be automatically converted to HTML entities or other things.")
 
 (defvar textile-error-break nil
@@ -273,6 +283,7 @@ like that).")
     ; turn my-string into a list of strings
       (setq Textile-escapes nil)
       (setq my-list (mapcar 'textile-encode-escapes my-list))
+      (setq my-list (mapcar 'textile-process-quotes my-list))
       (setq my-list (mapcar 'textile-process-image my-list))
       (setq my-list (mapcar 'textile-process-footnote my-list))
       (setq my-list (mapcar 'textile-process-acronym my-list))
@@ -568,12 +579,52 @@ like that).")
                                                         1))))))))
     (list "" attributes)))
 
+(defun textile-process-quotes (my-string)
+  "Educate all quotes in a given string or list of strings."
+  (if (listp my-string)
+      (if (member 'textile-tag my-string)
+          my-string
+        (mapcar 'textile-process-quotes my-string))
+    (with-temp-buffer
+      (insert my-string)
+      (goto-char (point-min))
+      (let ((links nil)
+            (textile-quotes-list textile-smart-quotes-list))
+        (while
+            (re-search-forward
+             "\\(\"\\([^\"]*?\\)\":\\([^ ]*?\\)\\)\\([,.;:\"']?\\( \\|$\\)\\)"
+             nil t)
+          (push (match-string 1) links)
+          (replace-match
+           (format "emacs_textile_link_token_%0d_x%s" (safe-length links)
+                   (match-string 4))))
+        (goto-char (point-min))
+        (while (re-search-forward "\\b\\(@.*?@\\)\\b" nil t)
+          (push (match-string 1) links)
+          (replace-match
+           (format "emacs_textile_link_token_%0d_x" (safe-length links))))
+        (goto-char (point-min))
+        (while textile-quotes-list
+          (save-excursion
+            (while (re-search-forward (car textile-quotes-list) nil t)
+              (replace-match (cadr textile-quotes-list)))
+            (setq textile-quotes-list (cddr textile-quotes-list))))
+        (while (re-search-forward "emacs_textile_link_token_\\([0-9]+\\)_x"
+                                  nil t)
+          (replace-match (nth (- (safe-length links)
+                                 (string-to-number (match-string 1))) links))))
+      (buffer-string))))
+
 (defun textile-process-link (my-string)
   "Process all links in a given string or list of strings."
   (textile-skip-tags 'textile-process-link my-string
-    (if (string-match
-         "\"\\([^\"]*?\\)\":\\([^ ]*?\\)\\([,.;:]?\\(?: \\|$\\)\\)"
-         my-string)
+    (if (or
+         (string-match
+          "\"\\([^\"]*?\\)\":\\([^ ]*?\\)\\(&#[0-9]+;\\)"
+          my-string)
+         (string-match
+          "\"\\([^\"]*?\\)\":\\([^ ]*?\\)\\([,.;:\"']?\\(?: \\|$\\)\\)"
+          my-string))
         (if (not (equal (match-beginning 0) 0))
             (list (substring my-string 0 (match-beginning 0))
                   (textile-process-link (substring my-string
