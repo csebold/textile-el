@@ -24,6 +24,8 @@
 (defvar textile-block-tag-regexp-start "\\(")
 (defvar textile-block-any-tag-regexp "[^ .]+")
 (defvar textile-block-tag-regexp-end "\\)\\(.*?\\)\\(\\.\\{1,2\\}\\) ")
+; FIXME - something is keeping (match-string 2) from matching the
+; attributes
 
 (defvar textile-block-tag-regexp
   (concat textile-block-tag-regexp-start
@@ -87,7 +89,9 @@
                ((equal this-char ?\[)
                 (forward-char 1)) ; lang rule
                ((equal this-char ?\()
-                (forward-char 1)) ; class/id rule
+                (forward-char 1)) ; class/id rule or padding
+               ((equal this-char ?\))
+                (forward-char 1)) ; right padding
                ((equal this-char ?\>)
                 (forward-char 1)) ; right-justify
                ((equal this-char ?\<)
