@@ -130,7 +130,8 @@ like that).")
 
 (defun textile-string-to-list (my-string)
   "Process textile-encoded MY-STRING and return a textile list tree."
-  (let ((blocks (textile-escape-blocks (split-string my-string "\n\n"))))
+  (let ((blocks (textile-blockcode-blocks
+                 (textile-escape-blocks (split-string my-string "\n\n")))))
     (delete "" (mapcar 'textile-block-to-list blocks))))
 
 (defun textile-escape-blocks (my-list)
@@ -145,13 +146,52 @@ like that).")
               (if hit-end
                   (setq escape-block (replace-match "" nil nil escape-block)))
               (while (and my-list (not hit-end))
-                (when (string-match "\n== *$" (car my-list))
-                  (setq hit-end t))
-                (setq escape-block (concat escape-block "\n\n"
-                                           (replace-match "" nil nil
-                                                          (car my-list))))
+                (if (string-match "\n== *$" (car my-list))
+                    (progn
+                      (setq escape-block
+                            (concat escape-block "\n\n"
+                                    (replace-match "" nil nil
+                                                   (car my-list))))
+                      (setq hit-end t))
+                  (setq escape-block (concat escape-block "\n\n"
+                                             (car my-list))))
                 (setq my-list (cdr my-list)))
               (push (list escape-block (list 'textile-tag nil)) new-list))
+          (push this-item new-list))))
+    (reverse new-list)))
+
+(defun textile-blockcode-blocks (my-list)
+  "In a list of block strings, bring blockcode blocks together."
+  (let ((new-list nil))
+    (while my-list
+      (let* ((this-item (car my-list)))
+        (setq my-list (cdr my-list))
+        (if (and (stringp this-item)
+                 (string-match (textile-this-block-tag-regexp "bc") this-item))
+            (let* ((my-tag (match-string 1 this-item))
+                   (my-attr (match-string 2 this-item))
+                   (extended-p (match-string 3 this-item))
+                   (code-block (replace-match "" nil nil this-item))
+                   (hit-end nil))
+              (if extended-p
+                  (while (and my-list (not hit-end))
+                    (if (or (not (stringp (car my-list)))
+                            (string-match textile-any-block-tag-regexp
+                                      (car my-list)))
+                        (progn
+                          (setq hit-end t)
+                          (push (list (list code-block
+                                            (list 'textile-tag "code"))
+                                      (plist-put my-attr 'textile-tag
+                                                 "pre"))
+                                new-list)
+                          (push (car my-list) new-list))
+                      (setq code-block (concat code-block "\n\n"
+                                               (car my-list))))
+                    (setq my-list (cdr my-list)))
+                (push (list (list code-block (list 'textile-tag "code"))
+                            (plist-put my-attr 'textile-tag "pre"))
+                                  new-list)))
           (push this-item new-list))))
     (reverse new-list)))
 
@@ -939,30 +979,30 @@ HTML-formatted this table."
     (list (textile-inline-to-list this-cell)
           cell-attributes)))
 
-(defun textile-block-escape ()
-  "Handle the escaped block starting at (point).
-Finish at the beginning of the next paragraph, having completely
-ignored this escaped block."
-  (delete-region
-   (save-excursion
-     (beginning-of-line)
-     (point))
-   (save-excursion
-     (end-of-line)
-     (if (looking-at "\n")
-         (forward-char 1))
-     (point)))
-  (re-search-forward "^== *$" nil t)
-  (delete-region
-   (save-excursion
-     (beginning-of-line)
-     (point))
-   (save-excursion
-     (end-of-line)
-     (if (looking-at "\n")
-         (forward-char 1))
-     (point)))
-  (textile-next-paragraph))
+;; (defun textile-block-escape ()
+;;   "Handle the escaped block starting at (point).
+;; Finish at the beginning of the next paragraph, having completely
+;; ignored this escaped block."
+;;   (delete-region
+;;    (save-excursion
+;;      (beginning-of-line)
+;;      (point))
+;;    (save-excursion
+;;      (end-of-line)
+;;      (if (looking-at "\n")
+;;          (forward-char 1))
+;;      (point)))
+;;   (re-search-forward "^== *$" nil t)
+;;   (delete-region
+;;    (save-excursion
+;;      (beginning-of-line)
+;;      (point))
+;;    (save-excursion
+;;      (end-of-line)
+;;      (if (looking-at "\n")
+;;          (forward-char 1))
+;;      (point)))
+;;   (textile-next-paragraph))
 
 (defun textile-block-p (my-string attributes)
   "Handle the paragraph block starting at (point).
