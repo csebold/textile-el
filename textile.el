@@ -164,6 +164,9 @@ like that).")
           (setq my-plist (plist-put my-plist 'textile-tag "p"))
           (setq my-plist (plist-put my-plist 'explicit nil))
           (list (textile-inline-to-list my-string) my-plist)))))
+     ((string-match "^|" my-string)
+      (setq my-plist (plist-put my-plist 'textile-tag "table"))
+      (textile-block-table my-string attributes))
      (t
       (setq my-plist (plist-put my-plist 'textile-tag "p"))
       (setq my-plist (plist-put my-plist 'explicit nil))
@@ -839,7 +842,9 @@ HTML-formatted this table."
       (textile-error "Extended <table> block doesn't make sense."))
   (setq attributes (plist-put attributes 'textile-tag "table"))
   (setq Textile-in-table t) ; where do I unset it though?
-  (let ((my-row-list (split-string my-string "| *\n")))
+  (let ((my-row-list
+         (reverse (cdr (reverse
+                        (split-string my-string "| *\\(?:\n\\|$\\)"))))))
     (append
      (mapcar
       (function
