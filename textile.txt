@@ -18,6 +18,34 @@ h1. This is a first-level header.
 
 * This is a single-item unordered list.
 
+* What if a list
+* of some length
+* has a line
+which starts with no list item tag
+* and yet finishes with one?
+
+h2. Textile v1 image tests:
+
+!http://www.livingtorah.org/images/a.gif!
+
+Here is !http://www.livingtorah.org/images/a.gif (an inline image)! to see if that works.
+
+And finally, here is !http://a.com/b.gif (a normal image)! and !http://a.com/c.gif (a linked image)!:ltm which is linked to an alias, no less.
+
+h2. Textile v2 image tests:
+
+!http://a.com/b.gif 30x40!
+
+!http://a.com/b.gif 30w 40h!
+
+!)>http://a.com/b.gif!
+
+!{border: 0px}http://a.com/b.gif 30x40 (with a title)!
+
+!{border: 0px}http://a.com/b.gif 30x40 (with a title)!:ltm
+
+h2. Textile link tests:
+
 OK, "here is a link":http://www.livingtorah.org to my website.
 
 "Here is a link":http://www.livingtorah.org, and "here's another":http://www.livingtorah.org.
@@ -31,6 +59,8 @@ And a "link including an ampersand":http://www.example.com/cgi-bin/test?a=b&c=d,
 Will thís be cônverted to Unicode, or at least entities?
 
 Here are the inline tests: We have a *strong* and an _emphasized,_ a **bold,** an __italics,__ a ++bigger,++ a --smaller,-- something -deleted,- something +inserted,+ some ^superscript,^ some ~subscript,~ a %{color: red}red span,% and @some code, including something like 2>&1 and _non-emphasized text_.@  And here's some ==*escaped text*== just to see what happens.  Here's some ??cited text?? also.
+
+Now, strong*things*embedded shouldn't work, but strong[*things embedded in braces*]should work.
 
 What about _emphasized text with some *strong* text within it?_
 
