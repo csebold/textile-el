@@ -24,6 +24,10 @@ h1. This is a first-level header.
 which starts with no list item tag
 * and yet finishes with one?
 
+h2. Textile smart quotes tests:
+
+Paragraphs that "end in quotes don't seem to work right."
+
 h2. Textile v1 image tests:
 
 !http://www.livingtorah.org/images/a.gif!
