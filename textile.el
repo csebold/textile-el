@@ -206,12 +206,18 @@ or STOP-REGEXP."
         (or attrib-string ""))
        (goto-char (point-min))
        (setq my-plist
-             (plist-put my-plist 'textile-attrib-string-length (1- (point-max))))
+             (plist-put my-plist
+                        'textile-attrib-string-length (1- (point-max))))
+       (setq my-plist
+             (plist-put my-plist 'textile-stop-length 1))
        (while (not (eobp))
          (let ((this-char (char-after)))
            (cond
            ((looking-at stop-regexp)
             (re-search-forward stop-regexp nil t)
+            (setq my-plist
+                  (plist-put my-plist 'textile-stop-length
+                             (length (match-string 1))))
             (setq my-plist (plist-put my-plist
                                       'textile-attrib-string-length (point)))
             (goto-char (point-max)))
@@ -798,7 +804,8 @@ If LEAVE-LAST is t, then don't delete the last stopping-point character."
         (delete-region (point)
                        (+ (point) length
                           (if leave-last
-                              -1
+                              (- 0
+                                 (plist-get attributes 'textile-stop-length))
                             0))))))
 
 (provide 'textile)
