@@ -325,24 +325,6 @@ like that).")
           (replace-match "&apos;")))
       (buffer-string))))
 
-(defun textile-process-brace (my-string)
-  "Process things in square brackets separately."
-  ; this actually isn't happening at the right time; this needs to be
-  ; handled before the inline processing, but I don't know how to make
-  ; the braces go away at that point.  FIXME
-  (if (listp my-string)
-      (if (member 'textile-tag my-string)
-          my-string
-        (mapcar 'textile-process-brace my-string))
-    (if (string-match "\\[\\([^\000]+?\\)\\]" my-string)
-        (list (substring my-string 0 (match-beginning 0))
-              (textile-process-brace
-               (textile-process-inline (match-string 1 my-string)))
-              (textile-process-brace (substring my-string
-                                                (match-end 0)))
-              (plist-put nil 'textile-tag nil))
-      my-string)))
-
 (defun textile-process-acronym (my-string)
   "Process all acronyms in a given string or list of strings."
   (if (listp my-string)
@@ -436,9 +418,13 @@ like that).")
         (if (member 'textile-tag my-string)
             my-string
           (mapcar 'textile-remove-braces my-string))
-      (if (string-match "^\\]?\\(.*?\\)\\[?$" my-string)
-          (match-string 1 my-string)
-        my-string))))
+      (if (string= (substring my-string 0 1) "]")
+          (setq my-string (substring my-string 1)))
+      (if (string= (substring my-string
+                              (- (length my-string) 1)
+                              (length my-string)) "[")
+          (setq my-string (substring my-string 0 (- (length my-string) 1))))
+      my-string)))
 
 (defun textile-process-footnote (my-string)
   "Process all footnotes in a given string or list of strings."
