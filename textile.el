@@ -97,14 +97,19 @@ determining where an extended block ends.")
   (concat
    "\\(?:^\\|\s\\|[>]\\)\\("
    "[*]\\{1,2\\}\\|[_]\\{1,2\\}\\|[+]\\{1,2\\}\\|[-]\\{1,2\\}\\|[~^%@]"
-   "\\|=="
+   "\\|\\?\\?\\|=="
    "\\)")
   "Should match any inline tag.")
 
 (defvar textile-inline-tag-list
   '("*" "strong" "_" "em" "**" "b" "__" "i" "++" "big" "--" "small"
-    "-" "del" "+" "ins" "^" "sup" "~" "sub" "%" "span" "@" "code")
+    "-" "del" "+" "ins" "^" "sup" "~" "sub" "%" "span" "@" "code" "??" "cite")
   "Link textile to HTML tags for inline formatting.")
+
+(defvar textile-alias-list nil
+  "Standard link aliases.
+For each string to match should be either a string which is the URL, or
+a list whose car is the title and cadr is the URL.")
 
 (defvar textile-error-break nil
   "Break parsing Textile when hitting a parsing error?
@@ -171,6 +176,8 @@ This is the primary processing loop in textile.el."
             (textile-block-escape))
            ((looking-at "|")
             (textile-block-table nil))
+           ((looking-at "\\[.*?\\].+")
+            (textile-block-alias))
            (t (textile-block-p nil))))
       (widen))))
 
@@ -544,6 +551,39 @@ left or right floating, or nothing for the default of \"both\"."
                 "clear: right; ")
                (t "clear: both; "))))
     (textile-error "Clear block's attribute string must be <, >, or nothing.")
+    (textile-next-paragraph)))
+
+(defun textile-block-alias ()
+  "Process an alias for future linking."
+  (if (looking-at "\\[\\(.*?\\)\\]\\([^\n]+\\)")
+      (let* ((alias-string (match-string 1))
+             (url-string (match-string 2))
+             (alias "")
+             (title ""))
+        (if (string-match "\\(.*\\) +(\\(.*\\))" alias-string)
+            (progn
+              (setq alias (match-string 1 alias-string))
+              (setq title (match-string 2 alias-string)))
+          (setq alias alias-string))
+        (if (member alias textile-alias-list)
+            ; FIXME - this isn't quite right, copied from .emacs too much
+            (dotimes (i (safe-length textile-alias-list))
+              (if (and (stringp (nth i textile-alias-list))
+                       (string= (nth i textile-alias-list) alias))
+                  (setcar (nthcdr i textile-alias-list)
+                          (if (string= title "")
+                              url-string
+                            (list title url-string)))))
+          (setq textile-alias-list
+                (cons
+                 (if (string= title "")
+                     url-string
+                   (list title url-string))
+                 textile-alias-list))
+          (setq textile-alias-list
+                (cons alias textile-alias-list)))
+        (re-search-forward "\\[.*?\\].*?\n+" nil t)
+        (replace-match ""))
     (textile-next-paragraph)))
 
 (defun textile-block-dl (attributes)
