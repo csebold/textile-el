@@ -14,7 +14,9 @@ h1. This is a first-level header.
 
 * This is a single-item unordered list.
 
-Here are the inline tests: We have a *strong,* an _emphasized,_ a **bold,** an __italics,__ a ++bigger,++ a --smaller,-- something -deleted,- something +inserted,+ some ^superscript,^ some ~subscript,~ a %{color: red;}red span,% and @some code, including something like 2>&1.@  And here's some ==*escaped text*== just to see what happens.
+Here are the inline tests: We have a *strong* and an _emphasized,_ a **bold,** an __italics,__ a ++bigger,++ a --smaller,-- something -deleted,- something +inserted,+ some ^superscript,^ some ~subscript,~ a %{color: red}red span,% and @some code, including something like 2>&1.@  And here's some ==*escaped text*== just to see what happens.
+
+What about _emphasized text with some *strong* text within it?_
 
 p)>. This should be a paragraph, floated right and padded on the right by 1 em.
 
