@@ -132,6 +132,9 @@ This is the primary processing loop in textile.el."
           (cond
            ((looking-at "^clear[<>]?\\. *\n")
             (textile-block-clear))
+           ; if we're looking at "table" then we need to setq
+           ; Textile-in-table-outer-tag to t so that alignment
+           ; is handled properly - FIXME
            ((looking-at textile-block-tag-regexp)
             (let* ((tag (match-string 1))
                    (attributes (textile-attributes " " (match-string 2)))
@@ -242,12 +245,13 @@ or STOP-REGEXP."
               (setq style (concat style "text-align: left; ")))
             (forward-char 1))
            ((equal this-char ?\=)
-            (setq style
-                  (concat style 
-                          ; if this is a table handle this differently
-                          (if (boundp 'Textile-in-table)
-                              "margin-left: auto; margin-right: auto; "
-                            "text-align: center; ")))
+            (cond
+             ((boundp 'Textile-in-table)
+              (setq align "center"))
+             ((boundp 'Textile-in-table-outer-tag)
+              (setq style (concat style
+                                  "margin-left: auto; margin-right: auto; ")))
+             (t (setq style (concat style "text-align: center; "))))
             (forward-char 1))
            ((equal this-char ?^ )
             (setq valign "top")
@@ -585,6 +589,7 @@ HTML-formatted this table."
   (if (plist-get attributes 'textile-extended)
       (textile-error "Extended <table> block doesn't make sense.")
     (textile-tag-insert "table" attributes)
+    (makunbound 'Textile-in-table-outer-tag)
     (textile-process-table-block)
     (textile-end-of-paragraph)
     (textile-end-tag-insert "table")
