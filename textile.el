@@ -33,7 +33,7 @@ This puts the previous pieces together, making it easier for
 us to construct alternate block tag regexps.")
 
 (defvar textile-any-block-tag-regexp
-  "^\\(?:[a-z0-9]+\\.\\|[^ ]+?[*#]\\|==\\)"
+  "^\\(?:[a-z0-9]+\\.\\|[^ ]+?[*#]\\|==\\||\\)"
   "Corresponds to any Textile block tag.
 All block tags must match this in some way; useful for
 determining where an extended block ends.")
@@ -112,6 +112,8 @@ This is the primary processing loop in textile.el."
                 (textile-block-p nil nil nil nil nil)))))
            ((looking-at "^== *\n")
             (textile-block-escape))
+           ((looking-at "|")
+            (textile-block-table nil nil nil nil nil))
            (t (textile-block-p nil nil nil nil nil))))
       (widen))))
 
@@ -226,6 +228,22 @@ functions, but handle new list items in this block specially."
       ; insert more inline tests here
       )))
 
+(defun textile-process-table-block ()
+  "Block processing of tables, calling inline textile conversion.
+Process the following paragraph by calling various inline
+functions, but handle new table rows in this block specially."
+  (save-excursion
+    (save-restriction
+      (narrow-to-region (point)
+                        (save-excursion
+                          (textile-end-of-paragraph)
+                          (point)))
+      (textile-inline-entities)
+      (textile-inline-table)
+      (textile-inline-generic)
+      ; insert more inline tests here
+      )))
+
 (defun textile-process-definition-block ()
   "Block processing of definition blocks, calling inline textile conversion.
 Process the following paragraph by calling various inline
@@ -292,6 +310,18 @@ paragraphs into <br> tags."
         (while (re-search-forward "\n" nil t)
           (replace-match "<br />\\&")))))
 
+(defun textile-inline-table ()
+  "Handle inline processing of tags and table cells in this block.
+Convert table rows into proper HTML, including attributes for
+individual cells and rows as necessary."
+  (if textile-br-all-newlines
+      (save-excursion
+        (while (re-search-forward "\\([^|] *\\)\n" nil t)
+          (replace-match "\\1<br />\n"))))
+  (save-excursion
+    ; FIXME - finish table row processing
+    ))
+
 (defun textile-inline-li ()
   "Handle inline processing of tags and list items in this block.
 Convert list items starting with list tags into proper HTML,
@@ -299,7 +329,7 @@ including attributes if necessary."
   (if textile-br-all-newlines
       (save-excursion
         (while (re-search-forward "\n[^*#]" nil t)
-          (replace-match "<br \>\\&"))))
+          (replace-match "<br />\\&"))))
   ; FIXME - deal with nested lists, probably v2
   (save-excursion
     (while (re-search-forward "\n\\([*#]\\)" nil t)
@@ -323,7 +353,7 @@ including attributes if necessary."
                  (if textile-br-all-newlines
                      (save-excursion
                        (backward-char 1)
-                       (insert "<br \\>")))
+                       (insert "<br />")))
                (insert "<dt>")
                (re-search-forward ":" nil t)
                (save-excursion
@@ -409,6 +439,20 @@ HTML-formatted this unordered list."
   (textile-end-of-paragraph)
   (insert "</li>\n</ul>")
   (textile-next-paragraph))
+
+(defun textile-block-table (extended style class id lang)
+  "Handle the table block starting at (point).
+Finish at the beginning of the next paragraph, having completely
+HTML-formatted this table."
+  (if (looking-at (textile-this-block-tag-regexp "table"))
+      (textile-delete-tag "table"))
+  (if extended
+      (textile-error "Extended <table> block doesn't make sense.")
+    (textile-block-start-tag-insert "table" style class id lang)
+    (textile-process-table-block)
+    (textile-end-of-paragraph)
+    (textile-block-end-tag-insert "table")
+    (textile-next-paragraph)))
 
 (defun textile-block-escape ()
   "Handle the escaped block starting at (point).
