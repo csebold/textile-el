@@ -24,6 +24,15 @@ and here's a line break to make things really interesting
 term with spaces:the definition should be self-evident
 finally:a last definition to see if it works
 
+bc.. This is code
+  Which you can see is a little bit
+    indented and tells us that 2>1
+      And that 1 & 2 < 4
+    Do you think this will work?
+
+  Look, more indented code!
+    It's supposed to stop before the next escape block.
+
 ==
 <p>This is supposed to be escaped text.  I should be able to do [1] in here with no problems, as well as other weird things.</p>
 
