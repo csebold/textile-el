@@ -216,7 +216,7 @@ If ARG, insert string at point."
   (with-temp-buffer
     (insert my-string)
     (goto-char (point-min))
-    (while (re-search-forward "#\\[(\\(([\000-\177]+?)\\))\\]" nil t)
+    (while (re-search-forward "#\\[(\\(([\000-\177]+?)\\))\\]#" nil t)
       (replace-match (save-match-data
                        (eval (car (read-from-string (match-string 1)))))
                      t nil nil 0))
