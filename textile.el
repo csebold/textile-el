@@ -133,6 +133,9 @@ This is the primary processing loop in textile.el."
     (save-restriction
       (narrow-to-region start end)
       (goto-char (point-min))
+      (save-excursion
+        ; process aliases
+        (textile-process-aliases))
       (while
           (cond
            ((looking-at "^clear[<>]?\\. *\n")
@@ -176,10 +179,17 @@ This is the primary processing loop in textile.el."
             (textile-block-escape))
            ((looking-at "|")
             (textile-block-table nil))
-           ((looking-at "\\[.*?\\].+")
-            (textile-block-alias))
            (t (textile-block-p nil))))
       (widen))))
+
+(defun textile-process-aliases ()
+  "Process the entire buffer, finding and removing aliases."
+  (while
+      (cond
+       ((looking-at "\\[.*?\\].+")
+        (textile-block-alias))
+       (t (textile-next-paragraph)))))
+
 
 (defun textile-attributes (&optional stop-regexp attrib-string)
   "Return a plist of attributes from (point) or ATTRIB-STRING.
@@ -397,9 +407,43 @@ footnotes, etc."
       (replace-match
        "<sup class=\"footnote\"><a href=\"#fn\\1\">\\1</a></sup>")))
   (save-excursion
+    (while (re-search-forward
+            "\"\\(.*?\\)\":\\([^ ]*?\\)\\([,.;:]?\\(?: \\|$\\)\\)"
+            nil t)
+      (let* ((text (match-string 1))
+             (url (match-string 2))
+             (delimiter (match-string 3))
+             (title "")
+             (alias-info (textile-alias-to-url url textile-alias-list)))
+        (replace-match "")
+        (if alias-info
+            (progn
+              (setq title (car alias-info))
+              (setq url (cadr alias-info)))
+          (if (string-match "\\(.*\\) +(\\(.*\\))" text)
+              (progn
+                (setq title (match-string 2 text))
+                (setq text (match-string 1 text)))))
+        (if (string= title "")
+            (setq title nil))
+        (textile-tag-insert "a" (list 'title title 'href url))
+        (insert text)
+        (textile-end-tag-insert "a")
+        (insert delimiter))))
+  (save-excursion
     (while (re-search-forward textile-inline-tag-regexp nil t)
-;      (insert "?->") ; debug to find where it finds these things first
       (textile-handle-inline-tag (match-string 1)))))
+
+(defun textile-alias-to-url (lookup alias-list)
+  "Lookup potential alias LOOKUP in ALIAS-LIST, return nil if none."
+  (if alias-list
+      (if (and (stringp (car alias-list))
+               (string= lookup (car alias-list)))
+          (if (listp (cadr alias-list))
+              (cadr alias-list)
+            (list "" (cadr alias-list)))
+        (textile-alias-to-url lookup (cddr alias-list)))
+    nil))
 
 (defun textile-handle-inline-tag (tag)
   "Given TAG, properly handle everything to the end of this tag."
@@ -566,11 +610,11 @@ left or right floating, or nothing for the default of \"both\"."
               (setq title (match-string 2 alias-string)))
           (setq alias alias-string))
         (if (member alias textile-alias-list)
-            ; FIXME - this isn't quite right, copied from .emacs too much
             (dotimes (i (safe-length textile-alias-list))
-              (if (and (stringp (nth i textile-alias-list))
-                       (string= (nth i textile-alias-list) alias))
-                  (setcar (nthcdr i textile-alias-list)
+              (if (and
+                   (stringp (nth i textile-alias-list))
+                   (string= (nth i textile-alias-list) alias))
+                  (setcar (nthcdr (1+ i) textile-alias-list)
                           (if (string= title "")
                               url-string
                             (list title url-string)))))
@@ -583,7 +627,8 @@ left or right floating, or nothing for the default of \"both\"."
           (setq textile-alias-list
                 (cons alias textile-alias-list)))
         (re-search-forward "\\[.*?\\].*?\n+" nil t)
-        (replace-match ""))
+        (replace-match "")
+        t)
     (textile-next-paragraph)))
 
 (defun textile-block-dl (attributes)
