@@ -106,7 +106,7 @@ determining where an extended block ends.")
     "-" "del" "+" "ins" "^" "sup" "~" "sub" "%" "span" "@" "code" "??" "cite")
   "Link textile to HTML tags for inline formatting.")
 
-(defvar textile-alias-list nil
+(defvar textile-alias-list-defaults nil
   "Standard link aliases.
 For each string to match should be either a string which is the URL, or
 a list whose car is the title and cadr is the URL.")
@@ -135,6 +135,7 @@ This is the primary processing loop in textile.el."
       (goto-char (point-min))
       (save-excursion
         ; process aliases
+        (setq textile-alias-list textile-alias-list-defaults)
         (textile-process-aliases))
       (while
           (cond
