@@ -403,13 +403,10 @@ supposed to be preformatted."
   (let ((unicode-string (encode-coding-string string 'utf-16))
         (unicode-values nil)
         (output ""))
-    (setq unicode-values (reverse
-                          (cdr
-                           (reverse
-                            (mapcar 'string-to-char
+    (setq unicode-values (mapcar 'string-to-char
                                     (nthcdr 3
                                             (split-string
-                                             unicode-string "")))))))
+                                             unicode-string ""))))
     (while (cdr unicode-values)
       (setq output (concat output "&#" (number-to-string
                                         (+ (* (car unicode-values) 256)
