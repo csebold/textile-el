@@ -267,8 +267,10 @@ If ARG, insert string at point."
     (insert my-string)
     (goto-char (point-min))
     (while (re-search-forward "#\\[(\\(([\000-\177]+?)\\))\\]#" nil t)
-      (replace-match (save-match-data
-                       (eval (car (read-from-string (match-string 1)))))
+      (replace-match (if noninteractive
+			 "elisp evaluation not available"
+		       (save-match-data
+			 (eval (car (read-from-string (match-string 1))))))
                      t nil nil 0))
     (buffer-string)))
 
@@ -1716,8 +1718,12 @@ Any attributes that start with \"textile-\" will be ignored."
 
 (when noninteractive
   (let ((input-string ""))
-    (while (setq current-line (textile-batch-read))
-      (setq input-string (concat input-string current-line)))
-    (textile-batch-write (textile-string input-string))))
+    (while (condition-case nil
+	       (setq current-line (textile-batch-read))
+	     (error nil))
+      (setq input-string (concat input-string current-line "\n")))
+    (textile-batch-write (textile-string
+			  (substring input-string 0
+				     (- (length input-string) 1))))))
 
 (provide 'textile)
