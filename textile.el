@@ -256,7 +256,7 @@ If ARG, insert string at point."
 (defun textile-string-to-list-old (my-string)
   "Process textile-encoded MY-STRING and return a textile list tree."
   (let ((old-eval-depth max-lisp-eval-depth))
-    (setq max-lisp-eval-depth (+ 200 max-lisp-eval-depth))
+    (setq max-lisp-eval-depth (+ 400 max-lisp-eval-depth))
     (setq textile-alias-list textile-alias-list-defaults)
     (setq textile-macros-list textile-macros-list-defaults)
     (prog1
@@ -280,6 +280,7 @@ If ARG, insert string at point."
     (prog1
         (let ((new-list nil))
           (with-temp-buffer
+            (setq case-fold-search nil)
             (insert (textile-manual-pre
                      (textile-process-elisp
                       (textile-process-aliases my-string))))
@@ -313,11 +314,14 @@ If ARG, insert string at point."
                 (if (re-search-forward "\n\n" nil t)
                     (progn
                       (replace-match "")
-                      (push (buffer-substring (point-min) (point)) new-list)
+                      (push (textile-block-to-list
+                             (buffer-substring (point-min) (point))) new-list)
                       (delete-region (point-min) (point)))
-                  (push (buffer-string) new-list)
+                  (push (textile-block-to-list
+                         (buffer-string)) new-list)
                   (delete-region (point-min) (point-max)))))))
-          (mapcar 'textile-block-to-list (reverse new-list)))
+          ; should I mapcar textile-block-to-list here, or earlier? FIXME
+          (reverse new-list))
       (setq max-lisp-eval-depth old-eval-depth))))
 
 (defun textile-process-elisp (my-string)
