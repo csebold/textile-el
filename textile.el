@@ -66,7 +66,8 @@ This doesn't count lists and escaped parts.")
 ; This next one might be able to be replaced by the new textile-attributes
 ; code, which just reads from the end of the tag to the end of the attrib
 ; information
-(defvar textile-block-tag-regexp-end "\\)\\(.*?\\)\\(\\.\\{1,2\\}\\) "
+(defvar textile-block-tag-regexp-end
+  "\\)\\(.*?\\)\\(\\.\\{1,2\\}\\)\\(?: \\|\n\\)"
   "This is how all block tags are supposed to end.")
 
 (defvar textile-block-tag-regexp
@@ -154,6 +155,9 @@ like that).")
       (coding-system-p 'utf-16-be-no-signature))
   "If we have utf-16, then we can do entity conversion.")
 
+(defvar textile-output-to-new-buffer t
+  "Should Textile output go to a new buffer?")
+
 (if (condition-case nil
         (split-string "a" "" t)
       (error nil))
@@ -173,10 +177,30 @@ like that).")
     (prog1
         (let ((blocks (textile-blockcode-blocks
                        (textile-escape-blocks (textile-split-string
-                                               (textile-process-aliases
-                                                my-string) "\n\n")))))
+                                               (textile-manual-pre
+                                                (textile-process-aliases
+                                                 my-string)) "\n\n+")))))
           (delete "" (mapcar 'textile-block-to-list blocks)))
       (setq max-lisp-eval-depth old-eval-depth))))
+
+(defun textile-manual-pre (my-string)
+  "If there are manually-entered <pre> blocks, escape them."
+  (with-temp-buffer
+    (insert my-string)
+    (goto-char (point-min))
+    (while (re-search-forward "^<pre>" nil t)
+      (if (save-excursion
+            (save-match-data
+              (re-search-forward "</pre>" nil t)
+              (looking-at "\n")))
+          (progn
+            (replace-match "==\n<pre>")
+            (re-search-forward "</pre>" nil t)
+            (insert "\n=="))
+        (replace-match "==<pre>")
+        (re-search-forward "</pre>" nil t)
+        (insert "==")))
+    (buffer-string)))
 
 (defun textile-escape-blocks (my-list)
   "In a list of block strings, bring escaped blocks together."
@@ -299,12 +323,15 @@ like that).")
     ; turn my-string into a list of strings
       (setq Textile-escapes nil)
       (setq Textile-tags nil)
+      (setq Textile-manual nil)
       (setq my-list (mapcar 'textile-encode-escapes my-list))
       (setq my-list (mapcar 'textile-encode-tags my-list))
+      (setq my-list (mapcar 'textile-encode-manual my-list))
       ; character-replacement processing
       (setq my-list (mapcar 'textile-process-quotes my-list))
       (setq my-list (mapcar 'textile-process-macros my-list))
       ; tag-handling processing
+      (setq my-list (mapcar 'textile-decode-manual my-list))
       (setq my-list (mapcar 'textile-process-inline my-list))
       (setq my-list (mapcar 'textile-decode-tags my-list))
       (setq my-list (mapcar 'textile-process-image my-list))
@@ -410,11 +437,45 @@ like that).")
                     (plist-put nil 'textile-tag nil))
             (list
              (match-string 1 my-string)
-             (plist-put (if (match-string 3 my-string)
-                            (plist-put 'nil
-                                       'title (match-string 3 my-string))
-                          'nil) 'textile-tag "acronym"))))
+             (if (match-string 3 my-string)
+                 (plist-put (plist-put 'nil 'title (match-string 3 my-string))
+                            'textile-tag "acronym")
+               (plist-put (plist-put 'nil 'class "caps")
+                          'textile-tag "span")))))
       my-string)))
+
+(defun textile-encode-manual (my-string)
+  "Tokenize manual HTML tags."
+  (if (listp my-string)
+      (if (member 'textile-tag my-string)
+          my-string
+        (mapcar 'textile-encode-manual my-string))
+    ; FIXME - handle entities in code block?
+    (while (string-match
+            "<code.*?>.*?</code>\\|<a .*?>\\|</a>"
+            my-string)
+      (push (match-string 0 my-string) Textile-manual)
+      (setq my-string
+            (replace-match
+             (format "emacs_textile_manual_token_%0d_x"
+                     (safe-length Textile-manual))
+             nil nil my-string)))
+    my-string))
+
+(defun textile-decode-manual (my-string)
+  "Find tokens and replace them with their original contents."
+  (if (listp my-string)
+      (if (member 'textile-tag my-string)
+          my-string
+        (mapcar 'textile-decode-manual my-string))
+    (while (string-match "emacs_textile_manual_token_\\([0-9]+\\)_x"
+                         my-string)
+      (setq my-string
+            (replace-match
+             (nth (- (safe-length Textile-manual)
+                     (string-to-number (match-string 1 my-string)))
+                  Textile-manual) nil nil my-string)))
+    my-string))
 
 (defun textile-encode-tags (my-string)
   "Tokenize links, images, footnotes, and acronyms."
@@ -472,7 +533,6 @@ like that).")
 ;;                nil nil my-string)))
 ;;       (setq case-fold-search temp))
    my-string))
-      
 
 (defun textile-decode-tags (my-string)
   "Find tokens and replace them with their original contents."
@@ -1399,9 +1459,23 @@ continue."
   (interactive "r")
   (save-excursion
     (let ((my-string (buffer-substring start end)))
-      (delete-region start end)
-      (goto-char start)
+      (if textile-output-to-new-buffer
+          (switch-to-buffer (get-buffer-create
+                             (textile-new-buffer-name)))
+        (delete-region start end)
+        (goto-char start))
       (insert (textile-string my-string)))))
+
+(defun textile-new-buffer-name ()
+  "Create new buffer name based on old buffer name."
+  (let ((inc 1))
+    (if (get-buffer (concat (buffer-name) ".html"))
+        (progn
+          (while (get-buffer (concat (buffer-name) "-"
+                                     (number-to-string inc) ".html"))
+            (setq inc (+ inc 1)))
+          (concat (buffer-name) "-" (number-to-string inc) ".html"))
+      (concat (buffer-name) ".html"))))
 
 (defun textile-buffer ()
   "Call textile-code-to-blocks on the entire buffer."
