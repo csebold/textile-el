@@ -90,7 +90,6 @@ determining where an extended block ends.")
           textile-block-tag-regexp-end))
 
 (defvar textile-list-tag-regexp
-  ; FIXME - support for nested lists, v2 probably
   ; FIXME - adapt code for table rows to this regexp for lists
   "^\\(([^ ]+?)\\|\\)\\([*#]+\\)[^ ]* "
   "All list block tags must match this.")
@@ -249,18 +248,48 @@ like that).")
 
 (defun textile-inline-to-list (my-string)
   "Process textile-encoded MY-STRING and return a textile inline tree."
-  (let ((my-plist (plist-put nil 'textile-tag nil))
-        (my-list (list my-string)))
-    (cond
+  (save-match-data
+    (let ((my-plist (plist-put nil 'textile-tag nil))
+          (my-list (list my-string)))
+      (cond
      ; break it up for inline tags
-     )
+       )
     ; turn my-string into a list of strings
-    (setq my-list (mapcar 'textile-process-footnote my-list))
-    (setq my-list (mapcar 'textile-process-link my-list))
+      (setq my-list (mapcar 'textile-process-footnote my-list))
+      (setq my-list (mapcar 'textile-process-acronym my-list))
+      (setq my-list (mapcar 'textile-process-link my-list))
     ; from this point on there will be no more converting ampersands
     ; to &amp;
-    (setq my-list (mapcar 'textile-process-non-ascii my-list))
-    (append my-list (list my-plist))))
+      (setq my-list (mapcar 'textile-process-non-ascii my-list))
+      (append my-list (list my-plist)))))
+
+(defun textile-process-acronym (my-string)
+  "Process all acronyms in a given string or list of strings."
+  (if (listp my-string)
+      (if (member 'textile-tag my-string)
+          my-string
+        (mapcar 'textile-process-acronym my-string))
+    (if (string-match "\\<\\([A-Z]\\{3,\\}\\)\\((\\(.*?\\))\\|\\)" my-string)
+        (if (not (equal (match-beginning 0) 0))
+            (list (substring my-string 0 (match-beginning 0))
+                  (textile-process-acronym (substring my-string
+                                                       (match-beginning 0)))
+                  (plist-put nil 'textile-tag nil))
+          (if (not (equal (match-end 0) (length my-string)))
+              (list (save-match-data
+                      (textile-process-acronym (substring my-string
+                                                           (match-beginning 0)
+                                                           (match-end 2))))
+                    (textile-process-acronym (substring my-string
+                                                         (match-end 2)))
+                    (plist-put nil 'textile-tag nil))
+            (list
+             (match-string 1 my-string)
+             (plist-put (if (match-string 3 my-string)
+                            (plist-put 'nil
+                                       'title (match-string 3 my-string))
+                          'nil) 'textile-tag "acronym"))))
+      my-string)))
 
 (defun textile-process-footnote (my-string)
   "Process all footnotes in a given string or list of strings."
@@ -271,17 +300,19 @@ like that).")
     (if (string-match "\\[\\([0-9]+\\)\\]" my-string)
         (if (not (equal (match-beginning 0) 0))
             (list (substring my-string 0 (match-beginning 0))
-                  (textile-process-footnote (substring my-string
-                                                       (match-beginning 0)
-                                                       (match-end 0)))
+                  (save-match-data
+                    (textile-process-footnote (substring my-string
+                                                         (match-beginning 0)
+                                                         (match-end 0))))
                   (plist-put nil 'textile-tag nil))
           (if (not (equal (match-end 0) (length my-string)))
               (list (save-match-data
                       (textile-process-footnote (substring my-string
                                                            (match-beginning 0)
                                                            (match-end 0))))
-                    (textile-process-footnote (substring my-string
-                                                         (match-end 0)))
+                    (save-match-data
+                      (textile-process-footnote (substring my-string
+                                                           (match-end 0))))
                     (plist-put nil 'textile-tag nil))
             (list
              (list
@@ -697,10 +728,6 @@ supposed to be preformatted."
 Practically all block formatting (except preformatted blocks)
 should call this function to handle inline tags like em, strong,
 footnotes, etc."
-  (save-excursion
-    (while (re-search-forward "\\[\\([0-9]+\\)\\]" nil t)
-      (replace-match
-       "<sup class=\"footnote\"><a href=\"#fn\\1\">\\1</a></sup>" t)))
   (save-excursion
     (while (re-search-forward "\\<\\([A-Z]\\{3,\\}\\)\\((\\(.*?\\))\\|\\)"
                               nil t)
@@ -1124,11 +1151,14 @@ continue."
 (defun textile-region (start end)
   "Call textile-code-to-blocks on region from point to mark."
   (interactive "r")
-  (save-excursion
-    (let ((my-string (buffer-substring start end)))
-      (delete-region start end)
-      (goto-char start)
-      (insert (textile-string my-string)))))
+  (let ((current-case-fold-search case-fold-search))
+    (setq case-fold-search nil)
+    (save-excursion
+      (let ((my-string (buffer-substring start end)))
+        (delete-region start end)
+        (goto-char start)
+        (insert (textile-string my-string))))
+    (setq case-fold-search current-case-fold-search)))
 
 (defun textile-buffer ()
   "Call textile-code-to-blocks on the entire buffer."
