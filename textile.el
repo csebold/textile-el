@@ -154,6 +154,16 @@ like that).")
       (coding-system-p 'utf-16-be-no-signature))
   "If we have utf-16, then we can do entity conversion.")
 
+(if (condition-case nil
+        (split-string "a" "" t)
+      (error nil))
+    (defun textile-split-string (my-string separator)
+      "Split MY-STRING by SEPARATOR and don't return empty substrings."
+      (split-string my-string separator t))
+  (defun textile-split-string (my-string separator)
+    "Split MY-STRING by SEPARATOR and don't return empty substrings."
+    (split-string my-string separator)))
+
 (defun textile-string-to-list (my-string)
   "Process textile-encoded MY-STRING and return a textile list tree."
   (let ((old-eval-depth max-lisp-eval-depth))
@@ -162,7 +172,7 @@ like that).")
     (setq textile-macros-list textile-macros-list-defaults)
     (prog1
         (let ((blocks (textile-blockcode-blocks
-                       (textile-escape-blocks (split-string
+                       (textile-escape-blocks (textile-split-string
                                                (textile-process-aliases
                                                 my-string) "\n\n")))))
           (delete "" (mapcar 'textile-block-to-list blocks)))
@@ -638,9 +648,9 @@ like that).")
          (my-string (substring my-string
                                (length (plist-get attributes
                                                   'textile-attrib-string))))
-         (my-list (split-string my-string " "))
+         (my-list (textile-split-string my-string " "))
          (my-dimensions (if (cadr my-list)
-                            (split-string (cadr my-list) "x")
+                            (textile-split-string (cadr my-list) "x")
                           nil)))
     (setq attributes (plist-put attributes 'textile-tag "img"))
     (setq attributes (plist-put attributes 'alt title))
@@ -911,7 +921,7 @@ or STOP-REGEXP."
              (setq lang (match-string 1))
              (re-search-forward "\\]" nil t))
             ((looking-at "(\\([^) (]+\\))")
-             (let ((this-attrib (split-string (match-string 1) "#")))
+             (let ((this-attrib (textile-split-string (match-string 1) "#")))
                (setq class (car this-attrib))
                (setq id (cadr this-attrib)))
              (re-search-forward ")" nil t))
@@ -1019,9 +1029,8 @@ or STOP-REGEXP."
           (unicode-values nil)
           (output ""))
       (setq unicode-values (mapcar 'string-to-char
-				   (delete "" ; needed for 21.4 split-string?
-					   (split-string
-					    unicode-string ""))))
+                                   (textile-split-string
+                                    unicode-string "")))
       (while (cdr unicode-values)
         (setq output (concat output "&#" (number-to-string
                                           (+ (* (car unicode-values) 256)
@@ -1035,7 +1044,7 @@ or STOP-REGEXP."
           (output ""))
       (setq unicode-values (mapcar 'string-to-char
                                    (nthcdr 2
-                                           (split-string
+                                           (textile-split-string
                                             unicode-string ""))))
       (while (cdr unicode-values)
         (setq output (concat output "&#" (number-to-string
@@ -1049,7 +1058,7 @@ or STOP-REGEXP."
                                                 'utf-16-be-no-signature))
           (unicode-values nil)
           (output ""))
-      (setq unicode-values (mapcar 'string-to-char (split-string
+      (setq unicode-values (mapcar 'string-to-char (textile-split-string
                                                     unicode-string "")))
       (while (cdr unicode-values)
         (setq output (concat output "&#" (number-to-string
@@ -1133,7 +1142,7 @@ HTML-formatted this definition list."
   (if (string-match (textile-this-block-tag-regexp "dl") my-string)
       (setq my-string (replace-match "" nil nil my-string)))
   (setq attributes (plist-put attributes 'textile-tag "dl"))
-  (let ((my-list (split-string my-string "\n"))
+  (let ((my-list (textile-split-string my-string "\n"))
         (my-new-list nil))
     (dotimes (i (safe-length my-list))
       (let ((this-line (nth i my-list)))
@@ -1172,7 +1181,7 @@ HTML-formatted this definition list."
                    'textile-well-formed)
         (if (string-match "^\\([#*]+\\)" my-string)
             (let ((my-start-level (length (match-string 1 my-string)))
-                  (my-list (split-string my-string "\n")))
+                  (my-list (textile-split-string my-string "\n")))
               (setq my-list (textile-unsplit-list-newlines my-list))
               (setq my-list (textile-organize-lists my-start-level my-list))
               (textile-process-li my-list)))
@@ -1289,7 +1298,7 @@ HTML-formatted this table."
     (textile-error "Extended <table> block doesn't make sense.")
     (setq attributes (plist-put attributes 'textile-extended nil)))
   (setq attributes (plist-put attributes 'textile-tag "table"))
-  (let ((my-row-list (split-string my-string " *| *\\(?:\n\\|$\\)")))
+  (let ((my-row-list (textile-split-string my-string " *| *\\(?:\n\\|$\\)")))
     (append
      (mapcar 'textile-table-row-process my-row-list) (list attributes))))
 
@@ -1299,7 +1308,7 @@ HTML-formatted this table."
                                  (length
                                   (plist-get row-attributes
                                              'textile-attrib-string))))
-         (my-cell-list (split-string this-string " *| *")))
+         (my-cell-list (textile-split-string this-string " *| *")))
     (setq row-attributes (plist-put row-attributes 'textile-tag "tr"))
     (if (plist-get row-attributes 'textile-header)
         (setq Textile-in-header-row t))
