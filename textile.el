@@ -132,6 +132,29 @@ auto-fill-mode).  Right now the default is standard Textile
 behavior (this could probably work with longlines.el or something
 like that).")
 
+(defun textile-string-to-list (my-string)
+  "Process textile-encoded MY-STRING and return a textile list tree."
+  (let ((blocks (split-string my-string "\n\n")))
+    (mapcar 'textile-block-to-list blocks)))
+
+(defun textile-block-to-list (my-string)
+  "Process textile-encoded MY-STRING and return a textile block tree."
+  (let ((my-plist nil))
+    (cond
+     ; test for block tags
+     (t
+      (plist-put my-plist 'tag nil)))
+    (list (textile-inline-to-list my-string) my-plist)))
+
+(defun textile-inline-to-list (my-string)
+  "Process textile-encoded MY-STRING and return a textile inline tree."
+  (let ((my-plist nil))
+    (cond
+     ; break it up for inline tags
+     (t
+      (plist-put my-plist 'tag nil)))
+    (list my-string my-plist)))
+
 (defun textile-code-to-blocks (start end)
   "Block process region from START to END.
 This is the primary processing loop in textile.el."
