@@ -28,7 +28,7 @@ And then "a normal link (Sun)":http://www.sun.com to Sun's website.
 
 Will thís be cônverted to Unicode, or at least entities?
 
-Here are the inline tests: We have a *strong* and an _emphasized,_ a **bold,** an __italics,__ a ++bigger,++ a --smaller,-- something -deleted,- something +inserted,+ some ^superscript,^ some ~subscript,~ a %{color: red}red span,% and @some code, including something like 2>&1.@  And here's some ==*escaped text*== just to see what happens.  Here's some ??cited text?? also.
+Here are the inline tests: We have a *strong* and an _emphasized,_ a **bold,** an __italics,__ a ++bigger,++ a --smaller,-- something -deleted,- something +inserted,+ some ^superscript,^ some ~subscript,~ a %{color: red}red span,% and @some code, including something like 2>&1 and _non-emphasized text_.@  And here's some ==*escaped text*== just to see what happens.  Here's some ??cited text?? also.
 
 What about _emphasized text with some *strong* text within it?_
 
