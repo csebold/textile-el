@@ -240,7 +240,7 @@ like that).")
 If ARG, insert string at point."
   (interactive "P")
   (if arg
-      (insert textile-version)
+      textile-version
     (message textile-version)))
 
 (if (condition-case nil
@@ -274,7 +274,7 @@ If ARG, insert string at point."
 (defun textile-string-to-list (my-string)
   "Process textile-encoded MY-STRING and return a textile list tree."
   (let ((old-eval-depth max-lisp-eval-depth))
-    (setq max-lisp-eval-depth (+ 10 max-lisp-eval-depth))
+    (setq max-lisp-eval-depth (+ 20 max-lisp-eval-depth))
     (setq textile-alias-list textile-alias-list-defaults)
     (setq textile-macros-list textile-macros-list-defaults)
     (prog1
@@ -297,7 +297,8 @@ If ARG, insert string at point."
                     (replace-match "\\1")))
                 (push (buffer-substring (point-min) (point)) new-list)
                 (delete-region (point-min) (point)))
-               ((looking-at (textile-this-block-tag-regexp "bc"))
+               ((and (looking-at (textile-this-block-tag-regexp "bc"))
+                     (string= (match-string 3) ".."))
                 (let ((end-of-block
                        (catch 'found-next-block
                          (while (re-search-forward "\n\n" nil t)
@@ -316,7 +317,7 @@ If ARG, insert string at point."
                       (delete-region (point-min) (point)))
                   (push (buffer-string) new-list)
                   (delete-region (point-min) (point-max)))))))
-          (reverse new-list))
+          (mapcar 'textile-block-to-list (reverse new-list)))
       (setq max-lisp-eval-depth old-eval-depth))))
 
 (defun textile-process-elisp (my-string)
@@ -327,8 +328,13 @@ If ARG, insert string at point."
     (while (re-search-forward "#\\[(\\(([\000-\177]+?)\\))\\]#" nil t)
       (replace-match (if noninteractive
 			 "elisp evaluation not available"
-		       (save-match-data
-			 (eval (car (read-from-string (match-string 1))))))
+                       (let ((my-response
+                              (save-match-data
+                                (eval (car (read-from-string
+                                            (match-string 1)))))))
+                         (if (stringp my-response)
+                             my-response
+                           (format "%S" my-response))))
                      t nil nil 0))
     (buffer-string)))
 
@@ -359,6 +365,12 @@ If ARG, insert string at point."
         (re-search-forward "</pre>" nil t)
         (insert "==")))
     (buffer-string)))
+
+(defun textile-block-escape (my-string)
+  "Process escaped blocks."
+  (while (string-match "^==>? *\n\\{0,2\\}$" my-string)
+    (setq my-string (replace-match "" nil nil my-string)))
+  (list my-string (list 'textile-tag nil)))
 
 (defun textile-escape-blocks (my-list)
   "In a list of block strings, bring escaped blocks together."
@@ -403,6 +415,10 @@ If ARG, insert string at point."
                 (push (list escape-block (list 'textile-tag nil)) new-list))
             (push this-item new-list)))))
     (reverse new-list)))
+
+(defun textile-block-blockcode (my-string)
+  "Process blockcode block."
+  (textile-blockcode-blocks (textile-split-string my-string "\n\n")))
 
 (defun textile-blockcode-blocks (my-list)
   "In a list of block strings, bring blockcode blocks together."
