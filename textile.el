@@ -23,7 +23,7 @@
 
 (defvar textile-block-tag-regexp-start "\\(")
 (defvar textile-block-any-tag-regexp "[^ .]+")
-(defvar textile-block-tag-regexp-end "\\)\\(\\.\\{1,2\\}\\) ")
+(defvar textile-block-tag-regexp-end "\\)\\(.*?\\)\\(\\.\\{1,2\\}\\) ")
 
 (defvar textile-block-tag-regexp
   (concat textile-block-tag-regexp-start
@@ -49,19 +49,27 @@
   (while
       (progn
         (if (looking-at textile-block-tag-regexp)
-            (let ((tag (match-string 1))
-                  (extended (string= (match-string 2) ".."))
-                  (style nil)
-                  (class nil)
-                  (id nil)) ; FIXME - fix style/class/id handling
-              (if (fboundp
-                   (car (read-from-string (concat "textile-block-" tag))))
-                  (eval (car (read-from-string
-                              (concat "(textile-block-" tag " " extended
-                                      " " style " " class " " id))))
+            (let* ((tag (match-string 1))
+                   (attributes (textile-attributes (match-string 2)))
+                   (extended (string= (match-string 3) ".."))
+                   (style (get attributes 'style))
+                   (class (get attributes 'class))
+                   (id (get attributes 'id))
+                   (my-function
+                    (car (read-from-string (concat "textile-block-" tag)))))
+              (if (fboundp my-function)
+                  (funcall my-function extended style class id)
                 (textile-block-p nil nil nil nil)))
           (textile-block-p nil nil nil nil))))
   (widen))
+
+(defun textile-attributes (attrib-string)
+  (let ((my-plist t))
+    ; FIXME - actually put something here rather than nil
+    (put 'my-plist 'style nil)
+    (put 'my-plist 'class nil)
+    (put 'my-plist 'id nil)
+    my-plist))
 
 (defun textile-block-p (extended style class id)
   (if extended
@@ -83,7 +91,6 @@
         textile-block-tag-regexp)
       nil t)
      (point))))
-
 
 (defun textile-error (error-message)
   (if textile-error-break
