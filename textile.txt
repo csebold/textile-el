@@ -28,6 +28,11 @@ and here's a line break to make things really interesting
 term with spaces:the definition should be self-evident
 finally:a last definition to see if it works
 
+table. |This is a simple table.|
+|Here is a cell that
+has a newline character in it.  Yikes.|
+|I hope that this works.|
+
 bc.. This is code
   Which you can see is a little bit
     indented and tells us that 2>1
