@@ -2,7 +2,10 @@
 ; $Id$
 
 ; Filters will probably have to wait for v2 of this code;
-; that looks even harder.
+; that looks hard.
+
+; Lots of spurious progns have been introduced to help with debugging;
+; those will need to be removed before 1.0.
 
 (defvar textile-block-tag-regexp-start "^\\(")
 (defvar textile-block-any-tag-regexp "[a-z0-9]+")
@@ -20,11 +23,12 @@
 
 (defvar textile-error-break nil)
 
-; code for processing each paragraph of an extended block
-;;     (while (and
-;;             (not (looking-at textile-block-tag-regexp))
-;;             (not (eobp)))
-;;       (textile-next-paragraph)
+; This variable determines whether we are using standard <br /> for
+; every non-block line break, or we aren't (which is nicer with the
+; usual way that people use Emacs, text-based modes, and
+; auto-fill-mode).  Right now the default is standard Textile behavior
+; (this could probably work with longlines.el or something like that).
+(defvar textile-br-all-newlines t)
 
 (defun textile-code-to-blocks (start end)
   (narrow-to-region start end)
@@ -124,10 +128,16 @@
   (textile-delete-tag "bq")
   (textile-block-start-tag-insert "blockquote" style class id lang)
   (if extended
-      (progn
-        ; FIXME
-        (textile-error "Extended blocks aren't supported yet.")
-        )
+      (while
+          (progn
+            (textile-block-start-tag-insert "p" nil nil nil nil)
+            (textile-end-of-paragraph)
+            (textile-block-end-tag-insert "p")
+            (if (save-excursion
+                  (textile-next-paragraph)
+                  (and (not (looking-at textile-block-tag-regexp))
+                       (not (eobp))))
+                (textile-next-paragraph))))
     (textile-block-start-tag-insert "p" nil nil nil nil)
     (textile-end-of-paragraph)
     (textile-block-end-tag-insert "p"))
