@@ -156,6 +156,7 @@
                         (save-excursion
                           (textile-end-of-paragraph)
                           (point)))
+      (textile-inline-entities)
       (textile-inline-newline)
       (textile-inline-generic)
       ; insert more inline tests here
@@ -168,6 +169,7 @@
                         (save-excursion
                           (textile-end-of-paragraph)
                           (point)))
+      (textile-inline-entities)
       (textile-inline-li)
       (textile-inline-generic)
       ; insert more inline tests here
@@ -180,8 +182,20 @@
                         (save-excursion
                           (textile-end-of-paragraph)
                           (point)))
+      (textile-inline-entities)
       (textile-inline-dl)
       (textile-inline-generic)
+      ; insert more inline tests here
+      )))
+
+(defun textile-process-pre-block ()
+  (save-excursion
+    (save-restriction
+      (narrow-to-region (point)
+                        (save-excursion
+                          (textile-end-of-paragraph)
+                          (point)))
+      (textile-inline-entities)
       ; insert more inline tests here
       )))
 
@@ -190,6 +204,17 @@
     (while (re-search-forward "\\[\\([0-9]+\\)\\]" nil t)
       (replace-match
        "<sup class=\"footnote\"><a href=\"#fn\\1\">\\1</a></sup>"))))
+
+(defun textile-inline-entities ()
+  (save-excursion
+    (while (re-search-forward "&" nil t)
+      (replace-match "&amp;")))
+  (save-excursion
+    (while (re-search-forward "<" nil t)
+      (replace-match "&lt;")))
+  (save-excursion
+    (while (re-search-forward ">" nil t)
+      (replace-match "&gt;"))))
 
 (defun textile-inline-newline ()
   (if textile-br-all-newlines
@@ -355,6 +380,26 @@
     (textile-end-of-paragraph)
     (textile-block-end-tag-insert "p"))
   (textile-block-end-tag-insert "blockquote")
+  (textile-next-paragraph))
+
+(defun textile-block-bc (extended style class id lang)
+  (textile-delete-tag "bc")
+  (textile-block-start-tag-insert "pre" style class id lang)
+  (textile-block-start-tag-insert "code" nil nil nil nil)
+  (if extended
+      (while
+          (progn
+            (textile-process-pre-block)
+            (textile-end-of-paragraph)
+            (when (save-excursion
+                    (textile-next-paragraph)
+                    (and (not (looking-at textile-block-tag-regexp))
+                         (not (eobp))))
+              (textile-next-paragraph))))
+    (textile-process-pre-block)
+    (textile-end-of-paragraph))
+  (textile-block-end-tag-insert "code")
+  (textile-block-end-tag-insert "pre")
   (textile-next-paragraph))
 
 (defun textile-delete-tag (&optional tag)
