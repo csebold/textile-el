@@ -26,6 +26,9 @@
 ; Note - in comments, DA = Dean Allen (original author of PHP Textile),
 ; BC = Brad Choate (implemented Textile v2 in Perl for Movable Type)
 
+(defvar textile-version "Textile.el v0.94"
+  "Version number for textile.el.")
+
 (defvar textile-block-tag-regexp-start "^\\("
   "All textile tag regexps start with this.")
 (defvar textile-block-any-tag-regexp "[a-z0-9]+"
@@ -130,6 +133,58 @@ like that).")
 (defvar textile-output-to-new-buffer t
   "Should Textile output go to a new buffer?")
 
+(defvar textile-xhtml-docstrings
+  '("XHTML 1.0 Strict" "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">"
+    "XHTML 1.0 Transitional" "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">"
+    "XHTML 1.0 Frameset" "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Frameset//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-frameset.dtd\">")
+  "Standard HTML doctypes so that a Textile document can be self-contained.")
+
+(defun textile-header (html-version title &optional charset &rest headers)
+  "Insert HTML header so that Textile documents can be self-contained."
+  (let ((my-docstrings textile-xhtml-docstrings)
+        (output ""))
+    (unless (member html-version textile-xhtml-docstrings)
+      (setq html-version "XHTML 1.0 Transitional"))
+    (while my-docstrings
+      (if (string= html-version (car my-docstrings))
+          (setq output (cadr my-docstrings)))
+      (setq my-docstrings (cddr my-docstrings)))
+    (setq output (concat output "\n\n"
+                         "<html xmlns=\"http://www.w3.org/1999/xhtml\">\n"
+                         "<head>\n"
+                         "<meta http-equiv=\"Content-Type\" "
+                         "content=\"text/html; charset="))
+    (unless charset
+      (setq charset "iso-8859-1"))
+    (setq output (concat output charset "\"\n"))
+    (setq output (concat output "<meta name=\"generator\" content=\""
+                         textile-version ", " (car (textile-split-string
+                                                    (emacs-version) "\n"))
+                         "\">\n"))
+    (while headers
+      (setq output (concat output (car headers) "\n"))
+      (setq headers (cdr headers)))
+    (setq output (concat output "<title>" title "</title>\n"))
+    (setq output (concat output "</head>\n<body>"))
+    output))
+
+(defun textile-footer (&optional &rest footers)
+  "Insert HTML footer so that Textile documents can be self-contained."
+  (let ((output ""))
+    (while footers
+      (setq output (concat output (car footers) "\n"))
+      (setq footers (cdr footers)))
+    (setq output (concat output "</body>\n</html>"))
+    output))
+
+(defun textile-version (&optional arg)
+  "Version information for this version of textile.el.
+If ARG, insert string at point."
+  (interactive "P")
+  (if arg
+      (insert textile-version)
+    (message textile-version)))
+
 (if (condition-case nil
         (split-string "a" "" t)
       (error nil))
@@ -150,10 +205,22 @@ like that).")
         (let ((blocks (textile-blockcode-blocks
                        (textile-escape-blocks (textile-split-string
                                                (textile-manual-pre
-                                                (textile-process-aliases
-                                                 my-string)) "\n\n+")))))
+                                                (textile-process-elisp
+                                                 (textile-process-aliases
+                                                  my-string))) "\n\n+")))))
           (delete "" (mapcar 'textile-block-to-list blocks)))
       (setq max-lisp-eval-depth old-eval-depth))))
+
+(defun textile-process-elisp (my-string)
+  "Find blocks marked with \"#[(())]\" and evaluate their contents."
+  (with-temp-buffer
+    (insert my-string)
+    (goto-char (point-min))
+    (while (re-search-forward "#\\[(\\(([\000-\177]+?)\\))\\]" nil t)
+      (replace-match (save-match-data
+                       (eval (car (read-from-string (match-string 1)))))
+                     t nil nil 0))
+    (buffer-string)))
 
 (defun textile-manual-pre (my-string)
   "If there are manually-entered <pre> blocks, escape them."
