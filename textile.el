@@ -183,9 +183,40 @@ like that).")
 
 (defun textile-list-to-blocks (my-list)
   "Convert list of textile trees to XHTML string."
-  ; FIXME - here is where we will put the extended block support for now?
   (textile-final-XHTML-tidy
-   (mapconcat 'textile-compile-string my-list "\n\n")))
+   (mapconcat 'textile-compile-string
+              (textile-unextend-blocks my-list) "\n\n")))
+
+(defun textile-unextend-blocks (my-list)
+  "In a list of textile trees, pull extended blocks together."
+  (let ((extended-p nil))
+    ; could mapcar be used for this?  Not sure.  FIXME
+    (dotimes (i (safe-length my-list))
+      (let ((this-object (nth i my-list)))
+        (if extended-p
+            (if
+                (not (plist-get (car (last this-object))
+                                'textile-explicit))
+            ; delete the object from the list
+                (progn
+                  (setcdr (nthcdr (- i 1) my-list)
+                          (nthcdr (+ i 1) my-list))
+                  ; now iterate i downward, since the list size has changed
+                  (setq i (- i 1))
+                  ; now let's set the cdr of our object to the
+                  ; attributes list of the last object
+                  (setcdr this-object (last (nth i my-list)))
+                  ; now let's set the cdr of the last item of the
+                  ; second-to-last object in the last object to our object
+                  (setcdr (car (nth i my-list)) this-object)
+                  ; but the above doesn't do that yet, it's reversing
+                  ; the order, FIXME (change "car" to "second-to-last"
+                  ; or algorithm to that effect)
+                  )
+              (setq extended-p nil)))
+        (if (plist-get (car (last this-object)) 'textile-extended)
+            (setq extended-p t)))))
+  my-list)
 
 (defun textile-compile-string (my-list)
   "Convert textile tree to XHTML string."
@@ -751,8 +782,9 @@ left or right floating, or nothing for the default of \"both\"."
   "Handle the definition list block starting at (point).
 Finish at the beginning of the next paragraph, having completely
 HTML-formatted this definition list."
-  (if (plist-get attributes 'textile-extended)
-      (textile-error "Extended <dl> block doesn't make sense."))
+  (when (plist-get attributes 'textile-extended)
+    (textile-error "Extended <dl> block doesn't make sense.")
+    (setq attributes (plist-put attributes 'textile-extended nil)))
   (if (string-match (textile-this-block-tag-regexp "dl") my-string)
       (setq my-string (replace-match "" nil nil my-string)))
   (setq attributes (plist-put attributes 'textile-tag "dl"))
@@ -841,8 +873,9 @@ Finish at the beginning of the next paragraph, having completely
 HTML-formatted this table."
   (if (string-match (textile-this-block-tag-regexp "table") my-string)
       (setq my-string (replace-match "" nil nil my-string)))
-  (if (plist-get attributes 'textile-extended)
-      (textile-error "Extended <table> block doesn't make sense."))
+  (when (plist-get attributes 'textile-extended)
+    (textile-error "Extended <table> block doesn't make sense.")
+    (setq attributes (plist-put attributes 'textile-extended nil)))
   (setq attributes (plist-put attributes 'textile-tag "table"))
   (let ((my-row-list (textile-all-but-last
                       (split-string my-string " *| *\\(?:\n\\|$\\)"))))
@@ -917,8 +950,9 @@ ignored this escaped block."
   "Handle the paragraph block starting at (point).
 Finish at the beginning of the next paragraph, having completely
 HTML-formatted this paragraph."
-  (if (plist-get attributes 'textile-extended)
-      (textile-error "Extended <p> block doesn't make sense."))
+  (when (plist-get attributes 'textile-extended)
+    (textile-error "Extended <p> block doesn't make sense.")
+    (setq attributes (plist-put attributes 'textile-extended nil)))
   (if (string-match (textile-this-block-tag-regexp "p") my-string)
       (setq my-string (replace-match "" nil nil my-string)))
   (setq attributes (plist-put attributes 'textile-tag "p"))
@@ -935,8 +969,9 @@ HTML-formatted this paragraph."
   "Handle the footnote starting at (point).
 Finish at the beginning of the next paragraph, having completely
 HTML-formatted this footnote."
-  (if (plist-get attributes 'textile-extended)
-      (textile-error "Extended fn? block doesn't make sense."))
+  (when (plist-get attributes 'textile-extended)
+    (textile-error "Extended fn? block doesn't make sense.")
+    (setq attributes (plist-put attributes 'textile-extended nil)))
   (if (string-match textile-block-tag-regexp my-string)
       (setq my-string (replace-match "" nil nil my-string)))
   (setq attributes (plist-put attributes 'textile-tag "p"))
@@ -955,8 +990,9 @@ HTML-formatted this footnote."
   "Handle the header block starting at (point).
 Finish at the beginning of the next paragraph, having completely
 HTML-formatted this header."
-  (if (plist-get attributes 'textile-extended)
-      (textile-error "Extended <h?> block doesn't make sense."))
+  (when (plist-get attributes 'textile-extended)
+    (textile-error "Extended <h?> block doesn't make sense.")
+    (setq attributes (plist-put attributes 'textile-extended nil)))
   (let ((my-tag (concat "h" (plist-get attributes 'textile-hlevel))))
     (if (string-match textile-block-tag-regexp my-string)
         (setq my-string (replace-match "" nil nil my-string)))
@@ -970,6 +1006,13 @@ HTML-formatted this header."
 ;;       (textile-end-tag-insert my-tag)
 ;;       (textile-next-paragraph))))
 
+(defun textile-block-bq (my-string attributes)
+  (setq attributes (plist-put attributes 'textile-tag "blockquote"))
+  (if (string-match textile-block-tag-regexp my-string)
+      (setq my-string (replace-match "" nil nil my-string)))
+  (list (list (textile-inline-to-list my-string)
+              (plist-put nil 'textile-tag "p"))
+        attributes))
 ;; (defun textile-block-bq (attributes)
 ;;   "Handle the blockquote block starting at (point).
 ;; Finish at the beginning of the next paragraph, having completely
