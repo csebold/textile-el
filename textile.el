@@ -1017,8 +1017,10 @@ or STOP-REGEXP."
                                                 'utf-16be))
           (unicode-values nil)
           (output ""))
-      (setq unicode-values (mapcar 'string-to-char (split-string
-                                                    unicode-string "")))
+      (setq unicode-values (delete "" ; necessary for 21.4 split-string?
+                                   (mapcar 'string-to-char
+                                           (split-string
+                                            unicode-string ""))))
       (while (cdr unicode-values)
         (setq output (concat output "&#" (number-to-string
                                           (+ (* (car unicode-values) 256)
