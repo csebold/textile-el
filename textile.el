@@ -714,13 +714,9 @@ like that).")
 
 (defun textile-process-quotes (my-string)
   "Educate all quotes in a given string or list of strings."
-;  (textile-skip-tags
-;   'textile-process-quotes
-;   my-string
-  (if (listp my-string)
-      (if (member 'textile-tag my-string)
-          my-string
-        (mapcar 'textile-process-quotes my-string))
+  (textile-skip-tags
+   'textile-process-quotes
+   my-string
    (with-temp-buffer
      (insert my-string)
      (goto-char (point-min))
