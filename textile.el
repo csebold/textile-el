@@ -98,7 +98,8 @@ a list whose car is the title and cadr is the URL.")
     " '" " &#8216;" ; any single-quote preceded by a space
     "\"\\( \\|$\\)" "&#8221;\\1" ; any double-quote followed by space
     "'\\( \\|$\\)" "&#8217;\\1" ; any single-quote followed by space
-    "\\([0-9]\\)'\\([0-9]\\|&#\\)" "\\1&#8217;\\2" ; 5'11 works
+    "\\([0-9]\\)'\\([0-9]\\|x[0-9]\\)" "\\1&#8217;\\2" ; 5'11 works
+    "\\([0-9]\\)\"\\([0-9]\\|x[0-9]\\)" "\\1&#8221;\\2" ; 5'11" works
     "\\`\"\\|\"\\b" "&#8220;" "\\b\"\\|\"\n\\|\"\\'" "&#8221;"
     "\\`'\\|'\\b" "&#8216;" "\\b'\\|'\n\\|'\\'" "&#8217;"
     "&#8220;'" "&#8220;&#8216;" "&#8216;\"" "&#8216;&#8220;"
@@ -713,9 +714,13 @@ like that).")
 
 (defun textile-process-quotes (my-string)
   "Educate all quotes in a given string or list of strings."
-  (textile-skip-tags
-   'textile-process-quotes
-   my-string
+;  (textile-skip-tags
+;   'textile-process-quotes
+;   my-string
+  (if (listp my-string)
+      (if (member 'textile-tag my-string)
+          my-string
+        (mapcar 'textile-process-quotes my-string))
    (with-temp-buffer
      (insert my-string)
      (goto-char (point-min))
