@@ -26,9 +26,9 @@ which starts with no list item tag
 
 h2. Textile lisp evaluation:
 
-This is #[((textile-version))]# running on #[((car (textile-split-string (emacs-version) "\n")))]# if you were curious.
+This is #[((textile-version t))]# running on #[((car (textile-split-string (emacs-version) "\n")))]# if you were curious.
 
-What about @#@@[((textile-version))]#@?
+What about @#@@[((textile-version t))]#@?
 
 h2. Textile smart quotes tests:
 
