@@ -1011,20 +1011,38 @@ or STOP-REGEXP."
   ; 21 (it would appear that 21.4 and future versions will have a coding
   ; system without the signature available; in those versions this code
   ; does not yet work as expected).  FIXME
-  (let ((unicode-string (encode-coding-string string 'utf-16-be))
-        (unicode-values nil)
-        (output ""))
-    (setq unicode-values (mapcar 'string-to-char
-                                    (nthcdr 2
-                                            (split-string
-                                             unicode-string ""))))
-    (while (cdr unicode-values)
-      (setq output (concat output "&#" (number-to-string
-                                        (+ (* (car unicode-values) 256)
-                                           (cadr unicode-values)))
-                           ";"))
-      (setq unicode-values (cddr unicode-values)))
-    output))
+  (cond
+   ((coding-system-p 'utf-16-be) ; Emacs 21.3
+    (let ((unicode-string (encode-coding-string string 'utf-16-be))
+          (unicode-values nil)
+          (output ""))
+      (setq unicode-values (mapcar 'string-to-char
+                                   (nthcdr 2
+                                           (split-string
+                                            unicode-string ""))))
+      (while (cdr unicode-values)
+        (setq output (concat output "&#" (number-to-string
+                                          (+ (* (car unicode-values) 256)
+                                             (cadr unicode-values)))
+                             ";"))
+        (setq unicode-values (cddr unicode-values)))
+      output))
+   ((coding-system-p 'utf-16-be-no-signature) ; Mule-UCS
+    (let ((unicode-string (encode-coding-string string
+                                                'utf-16-be-no-signature))
+          (unicode-values nil)
+          (output ""))
+      (setq unicode-values (mapcar 'string-to-char (split-string
+                                                    unicode-string "")))
+      (while (cdr unicode-values)
+        (setq output (concat output "&#" (number-to-string
+                                          (+ (* (car unicode-values) 256)
+                                             (cadr unicode-values)))
+                             ";"))
+        (setq unicode-values (cddr unicode-values)))
+      output))
+   (t
+     string))))
 
 (defun textile-alias-to-url (lookup alias-list)
   "Lookup potential alias LOOKUP in ALIAS-LIST, return nil if none."
