@@ -273,6 +273,7 @@ like that).")
       (setq my-list (mapcar 'textile-process-footnote my-list))
       (setq my-list (mapcar 'textile-process-acronym my-list))
       (setq my-list (mapcar 'textile-process-link my-list))
+      (setq my-list (mapcar 'textile-process-macros my-list))
       (setq my-list (mapcar 'textile-process-inline my-list))
       (setq my-list (mapcar 'textile-process-ampersand my-list))
     ; from this point on there will be no more converting ampersands
@@ -281,86 +282,80 @@ like that).")
       (setq my-list (mapcar 'textile-process-non-ascii my-list))
       (append my-list (list my-plist)))))
 
+(defmacro textile-skip-tags (my-function my-string &rest body)
+  "If MY-STRING is a list, then perform BODY on each member of MY-STRING."
+  (list 'if
+        (list 'listp my-string)
+        (list 'if (list 'member ''textile-tag my-string)
+              my-string
+              (list 'mapcar my-function my-string))
+        (cons 'progn body)))
+
 (defun textile-process-macros (my-string)
   "Convert any macros found in MY-STRING to their equivalent entities."
-  (if (listp my-string)
-      (if (member 'textile-tag my-string)
-          my-string
-        (mapcar 'textile-process-macros my-string))
-    (with-temp-buffer
-      (setq case-fold-search t)
-      (insert my-string)
-      (let ((my-macros textile-macros-list))
-        (while my-macros
-          (let ((search-for (car my-macros))
-                (replace-with (cadr my-macros)))
-            (goto-char (point-min))
-            (while (re-search-forward search-for nil t)
-              (replace-match replace-with))
-            (setq my-macros (cddr my-macros)))))
-      (buffer-string))))
+  (textile-skip-tags 'textile-process-macros my-string
+                     (with-temp-buffer
+                       (setq case-fold-search t)
+                       (insert my-string)
+                       (let ((my-macros textile-macros-list))
+                         (while my-macros
+                           (let ((search-for (car my-macros))
+                                 (replace-with (cadr my-macros)))
+                             (goto-char (point-min))
+                             (while (re-search-forward search-for nil t)
+                               (replace-match replace-with))
+                             (setq my-macros (cddr my-macros)))))
+                       (buffer-string))))
 
 (defun textile-process-newline (my-string)
   "Convert newlines to <br /> tags if so desired."
   (if textile-br-all-newlines
-      (if (listp my-string)
-          (if (member 'textile-tag my-string)
-              my-string
-            (mapcar 'textile-process-newline my-string))
-        (with-temp-buffer
-          (insert my-string)
-          (goto-char (point-min))
-          (while (re-search-forward "\n" nil t)
-            (replace-match "<br />\n"))
-          (buffer-string)))
+      (textile-skip-tags 'textile-process-newline my-string
+                         (with-temp-buffer
+                           (insert my-string)
+                           (goto-char (point-min))
+                           (while (re-search-forward "\n" nil t)
+                             (replace-match "<br />\n"))
+                           (buffer-string)))
     my-string))
 
 (defun textile-process-ampersand (my-string)
   "Convert ampersands to &amp; as necessary."
-  (if (listp my-string)
-      (if (member 'textile-tag my-string)
-          my-string
-        (mapcar 'textile-process-ampersand my-string))
-    (with-temp-buffer
-      (insert my-string)
-      (goto-char (point-min))
-      (save-excursion
-        (while (re-search-forward "&" nil t)
-          (if (looking-at "#?\\w+;")
-              (re-search-forward "#?\\w+;" nil t)
-            (replace-match "&amp;"))))
-      (buffer-string))))
+  (textile-skip-tags 'textile-process-ampersand my-string
+                     (with-temp-buffer
+                       (insert my-string)
+                       (goto-char (point-min))
+                       (save-excursion
+                         (while (re-search-forward "&" nil t)
+                           (if (looking-at "#?\\w+;")
+                               (re-search-forward "#?\\w+;" nil t)
+                             (replace-match "&amp;"))))
+                       (buffer-string))))
 
 (defun textile-process-code (my-string)
   "Process necessary things in <code> fragments, like the five XML entities."
   ; ugly hack but easier than the alternative right now
-  (if (listp my-string)
-      (if (member 'textile-tag my-string)
-          my-string
-        (mapcar 'textile-process-code my-string))
-    (with-temp-buffer
-      (insert (textile-process-ampersand my-string))
-      (goto-char (point-min))
-      (save-excursion
-        (while (re-search-forward "<" nil t)
-          (replace-match "&lt;")))
-      (save-excursion
-        (while (re-search-forward ">" nil t)
-          (replace-match "&gt;")))
-      (save-excursion
-        (while (re-search-forward "\"" nil t)
-          (replace-match "&quot;")))
-      (save-excursion
-        (while (re-search-forward "'" nil t)
-          (replace-match "&apos;")))
-      (buffer-string))))
+  (textile-skip-tags 'textile-process-code my-string
+                     (with-temp-buffer
+                       (insert (textile-process-ampersand my-string))
+                       (goto-char (point-min))
+                       (save-excursion
+                         (while (re-search-forward "<" nil t)
+                           (replace-match "&lt;")))
+                       (save-excursion
+                         (while (re-search-forward ">" nil t)
+                           (replace-match "&gt;")))
+                       (save-excursion
+                         (while (re-search-forward "\"" nil t)
+                           (replace-match "&quot;")))
+                       (save-excursion
+                         (while (re-search-forward "'" nil t)
+                           (replace-match "&apos;")))
+                       (buffer-string))))
 
 (defun textile-process-acronym (my-string)
   "Process all acronyms in a given string or list of strings."
-  (if (listp my-string)
-      (if (member 'textile-tag my-string)
-          my-string
-        (mapcar 'textile-process-acronym my-string))
+  (textile-skip-tags 'textile-process-acronym my-string
     (if (string-match "\\<\\([A-Z]\\{3,\\}\\)\\((\\(.*?\\))\\|\\)" my-string)
         (if (not (equal (match-beginning 0) 0))
             (list (substring my-string 0 (match-beginning 0))
@@ -385,10 +380,7 @@ like that).")
 
 (defun textile-process-inline (my-string)
   "Process all of the usual inline tags in a given string or list of strings."
-  (if (listp my-string)
-      (if (member 'textile-tag my-string)
-          my-string
-        (mapcar 'textile-process-inline my-string))
+  (textile-skip-tags 'textile-process-inline my-string
     (if (string-match
          "\\(?:^\\|\\W\\)\\(==\\)\\([^\000]+?\\)\\(\\1\\)\\(?:\\W\\|\\$\\)"
          my-string)
@@ -400,7 +392,7 @@ like that).")
                 (textile-process-inline (substring my-string
                                                    (match-end 3))))
               (plist-put nil 'textile-tag nil))
-      (setq my-string (textile-process-macros my-string))
+;      (setq my-string (textile-process-macros my-string))
       (if (string-match textile-inline-tag-regexp my-string)
           (if (not (equal (match-beginning 0) 0))
               (list (textile-remove-braces
@@ -445,10 +437,7 @@ like that).")
 (defun textile-remove-braces (my-string)
   "Remove inappropriate braces from the beginning or end of a string."
   (save-match-data
-    (if (listp my-string)
-        (if (member 'textile-tag my-string)
-            my-string
-          (mapcar 'textile-remove-braces my-string))
+    (textile-skip-tags 'textile-remove-braces my-string
       (if (string= (substring my-string 0 1) "]")
           (setq my-string (substring my-string 1)))
       (if (string= (substring my-string
@@ -459,10 +448,7 @@ like that).")
 
 (defun textile-process-footnote (my-string)
   "Process all footnotes in a given string or list of strings."
-  (if (listp my-string)
-      (if (member 'textile-tag my-string)
-          my-string
-        (mapcar 'textile-process-footnote my-string))
+  (textile-skip-tags 'textile-process-footnote my-string
     (if (string-match "\\[\\([0-9]+\\)\\]" my-string)
         (if (not (equal (match-beginning 0) 0))
             (list (substring my-string 0 (match-beginning 0))
@@ -493,10 +479,7 @@ like that).")
 
 (defun textile-process-image (my-string)
   "Process all images in a given string or list of strings."
-  (if (listp my-string)
-      (if (member 'textile-tag my-string)
-          my-string
-        (mapcar 'textile-process-link my-string))
+  (textile-skip-tags 'textile-process-image my-string
     (if (string-match
          "!\\([^!]+?\\) *\\((\\(.*?\\))\\)?!\\(?::\\([^ ]*?\\)\\([,.;:]?\\(?: \\|$\\)\\)\\)?" my-string)
         (if (not (equal (match-beginning 0) 0))
@@ -567,10 +550,7 @@ like that).")
 
 (defun textile-process-link (my-string)
   "Process all links in a given string or list of strings."
-  (if (listp my-string)
-      (if (member 'textile-tag my-string)
-          my-string
-        (mapcar 'textile-process-link my-string))
+  (textile-skip-tags 'textile-process-link my-string
     (if (string-match
          "\"\\([^\"]*?\\)\":\\([^ ]*?\\)\\([,.;:]?\\(?: \\|$\\)\\)"
          my-string)
@@ -612,10 +592,7 @@ like that).")
       my-string)))
 
 (defun textile-process-non-ascii (my-string)
-  (if (listp my-string)
-      (if (member 'textile-tag my-string)
-          my-string
-        (mapcar 'textile-process-non-ascii my-string))
+  (textile-skip-data 'textile-process-non-ascii my-string
     (while (string-match "\\([^\000-\177]+\\)" my-string)
       (let* ((non-ascii-string (match-string 1 my-string))
              (replacement (save-match-data
