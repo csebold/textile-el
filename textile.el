@@ -7,6 +7,12 @@
 ; Lots of spurious progns have been introduced to help with debugging;
 ; those will need to be removed before 1.0.
 
+; Note - in comments, DA = Dean Allen (original author of PHP Textile),
+; BC = Brad Choate (implemented Textile v2 in Perl for Movable Type)
+
+; Tue 27 Jul 2004 09:41 - yay!  All BC block tags handled except for
+; table at this point.
+
 (defvar textile-block-tag-regexp-start "^\\("
   "All textile tag regexps start with this.")
 (defvar textile-block-any-tag-regexp "[a-z0-9]+"
@@ -177,6 +183,10 @@ ids, and langs."
     (if (> right-pad 0)
         (setq style (concat style "padding-right: "
                             (format "%d" right-pad) "em; ")))
+    (when (and (or (> left-pad 0) (> right-pad 0))
+               style
+               (string-match "text-align: \\(left\\|right\\); " style))
+      (setq style (replace-match "float: \\1; " nil nil style)))
     (dolist (this-variable '(style class id lang))
       (when (string= (eval this-variable) "")
         (set this-variable nil))
