@@ -145,12 +145,13 @@ or STOP-REGEXP."
         (or attrib-string ""))
        (goto-char (point-min))
        (setq my-plist
-             (plist-put my-plist 'textile-attrib-string-length (point-max)))
+             (plist-put my-plist 'textile-attrib-string-length (1- (point-max))))
        (while (not (eobp))
          (let ((this-char (char-after)))
            (cond
            ((looking-at stop-regexp)
-            (setq my-plist (plist-put my-plist 'textile-attrib-string-length (point)))
+            (setq my-plist (plist-put my-plist
+                                      'textile-attrib-string-length (point)))
             (goto-char (point-max)))
            ((looking-at "{\\([^}]*\\)}")
             (setq style (concat style (match-string 1) "; "))
@@ -264,7 +265,6 @@ functions, but handle new table rows in this block specially."
                         (save-excursion
                           (textile-end-of-paragraph)
                           (point)))
-      (textile-inline-entities)
       (textile-inline-table)
       (textile-inline-generic)
       ; insert more inline tests here
@@ -382,10 +382,7 @@ including attributes if necessary."
       (let ((tag (match-string 1)))
         (replace-match "</li>\n")
         (let ((attributes (textile-attributes " ")))
-          (delete-region (point)
-                         (+ (point)
-                            (plist-get attributes
-                                       'textile-attrib-string-length)))
+          (textile-delete-attributes attributes)
           (textile-tag-insert "li" attributes))))))
 
 (defun textile-inline-dl ()
@@ -450,9 +447,7 @@ HTML-formatted this ordered list."
   (textile-tag-insert "ol" l-attributes)
   (insert "\n")
   (let ((attributes (textile-attributes " ")))
-    (delete-region (point)
-                   (+ (point)
-                      (plist-get attributes 'textile-attrib-string-length)))
+    (textile-delete-attributes attributes)
     (textile-tag-insert "li" attributes))
   (textile-process-list-block)
   (textile-end-of-paragraph)
@@ -468,9 +463,7 @@ HTML-formatted this unordered list."
   (textile-tag-insert "ul" l-attributes)
   (insert "\n")
   (let ((attributes (textile-attributes " ")))
-    (delete-region (point)
-                   (+ (point)
-                      (plist-get attributes 'textile-attrib-string-length)))
+    (textile-delete-attributes attributes)
     (textile-tag-insert "li" attributes))
   (textile-process-list-block)
   (textile-end-of-paragraph)
@@ -677,7 +670,6 @@ Any attributes that start with \"textile-\" will be ignored."
   (delete-region (point)
                  (+ (point)
                     (plist-get attributes
-                               'textile-attrib-string-length)
-                    -1)))
+                               'textile-attrib-string-length))))
 
 (provide 'textile)
