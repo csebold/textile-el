@@ -1,5 +1,7 @@
 ==
 <!-- $Id$ -->
+
+This is a long escaped block.
 ==
 
 p((<>[11](my_class). This is a Textile test.
