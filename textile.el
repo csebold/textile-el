@@ -117,6 +117,8 @@ a list whose car is the title and cadr is the URL.")
     "\\(^\\| \\)--\\( \\|$\\)" "\\1&#8212;\\2" "<-" "&#8592;"
     "\\(^\\| \\)-\\( \\|$\\)" "\\1&#8211;\\2" "\\.\\.\\." "&#8230;"
     ; following this is the beginning attempt at quote education
+    "\\(\\w\\)'\\(\\w\\)" "\\1&#8217;\\2"
+    "'\\([0-9]\\{2\\}s\\)" "&#8217;\\1"
     "^\"\\|\"\\b" "&#8220;" "\\b\"\\|\"$" "&#8221;"
     "^'\\|'\\b" "&#8216;" "\\b'\\|'$" "&#8217;")
   "Code to be automatically converted to HTML entities or other things.")
