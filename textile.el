@@ -1,17 +1,60 @@
 ; textile.el
 ; $Id$
 
-; Filters will probably have to wait for v2 of this code;
-; that looks hard.
+; by Charles Sebold <csebold@livingtorah.org>
 
-; Lots of spurious progns have been introduced to help with debugging;
-; those will need to be removed before 1.0.
+;;; Copyright: (C) 2004 Charles Sebold
+;; 
+;;     This program is free software; you can redistribute it and/or
+;;     modify it under the terms of the GNU General Public License as
+;;     published by the Free Software Foundation; either version 2 of
+;;     the License, or (at your option) any later version.
+;;     
+;;     This program is distributed in the hope that it will be useful,
+;;     but WITHOUT ANY WARRANTY; without even the implied warranty of
+;;     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+;;     GNU General Public License for more details.
+;;     
+;;     You should have received a copy of the GNU General Public
+;;     License along with GNU Emacs; if not, write to the Free
+;;     Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
+;;     MA 02111-1307, USA.
+;;
+;; Latest version should be available at:
+;;    <URL:http://www.livingtorah.org/~csebold/emacs/textile/>
 
 ; Note - in comments, DA = Dean Allen (original author of PHP Textile),
 ; BC = Brad Choate (implemented Textile v2 in Perl for Movable Type)
 
-; Tue 27 Jul 2004 09:41 - yay!  All BC block tags handled except for
-; table at this point (in progress).
+; Todo for release 1.0: support all of DA's Textile 1.0 as demonstrated
+; at http://www.textism.com/tools/textile/, as well as some of BC's
+; Textile 2 at http://bradchoate.com/mt/docs/mtmanual_textile2.html.
+; Also include all basic support functions necessary to integrate into
+; normal life, like textile-string, textile-buffer, textile-region, and
+; support generating a separate HTML buffer and leaving the old one
+; intact
+
+; Todo for release 2.0: support all of BC's Textile 2.0 as demonstrated
+; at http://bradchoate.com/tools/textile/.  Possibly also built-in
+; support for longlines.el and things like that, so that you can work
+; the way God and RMS intended Emacs to work, but then process Textile
+; the way DA and BC intended for Textile to work.
+
+; Todo for release 2.1: integrate into W3 and other HTML-processing
+; solutions like w3m.el, so that you can view buffers, convert them to
+; plain text, and so forth.  No plans for textile-to-plain-text
+; conversion, that's too much to take on; too many ways to convert HTML
+; to plain text to make that worthwhile.
+
+; Todo for release 2.2: Integrate into Message from Gnus so a person
+; could do that most evil of tasks, compose and send HTML messages
+; straight from a *mail* buffer.
+
+; Todo for release 2.3: (May be sooner if I feel like it sooner) Include
+; a minor mode for composing textile which will do some
+; syntax-highlighting, but don't expect a WYSIWYG textile editor or
+; anything like that.  Maybe we could work this into the compile
+; support... OK, that's too much.
 
 (defvar textile-block-tag-regexp-start "^\\("
   "All textile tag regexps start with this.")
@@ -46,11 +89,16 @@ determining where an extended block ends.")
 
 (defvar textile-list-tag-regexp
   ; FIXME - support for nested lists, v2 probably
+  ; FIXME - adapt code for table rows to this regexp for lists
   "^\\(([^ ]+?)\\|\\)\\([*#]\\)[^ ]* "
   "All list block tags must match this.")
 
 (defvar textile-inline-tag-regexp
-  "\\([*]\\{1,2\\}\\|[_]\\{1,2\\}\\|[+]\\{1,2\\}\\|[-]\\{1,2\\}\\|[~^%@]\\)\\<"
+  (concat
+   "\\(?:^\\|\s\\|[>]\\)\\("
+   "[*]\\{1,2\\}\\|[_]\\{1,2\\}\\|[+]\\{1,2\\}\\|[-]\\{1,2\\}\\|[~^%@]"
+   "\\|=="
+   "\\)")
   "Should match any inline tag.")
 
 (defvar textile-inline-tag-list
@@ -333,8 +381,8 @@ footnotes, etc."
 (defun textile-handle-inline-tag (tag)
   "Given TAG, properly handle everything to the end of this tag."
   (if (save-excursion
-        (re-search-forward (concat "\\(?:\\>\\|[,;:.]\\)"
-                                   (regexp-quote tag)) nil t))
+        (re-search-forward (concat (regexp-quote tag)
+                                   "\\(?:$\\|\s\\|[<,;:!?.]\\)") nil t))
       (progn
         (delete-region (- (point) (length tag)) (point))
         (save-excursion
@@ -342,19 +390,23 @@ footnotes, etc."
             (narrow-to-region
              (point)
              (save-excursion
-               (re-search-forward (concat "\\(?:\\>\\|[,;:.]\\)"
-                                          (regexp-quote tag)) nil t)
+               (re-search-forward (concat (regexp-quote tag)
+                                          "\\(?:$\\|\s\\|[<,;:!?.]\\)") nil t)
                (point)))
-            (let ((attributes (textile-attributes "[A-Za-z0-9]"))
-                  (html-tag (textile-generate-inline-tag
-                             tag
-                             textile-inline-tag-list)))
-              (textile-delete-attributes attributes t)
-              (textile-tag-insert html-tag attributes)
-              (re-search-forward (concat "\\>\\([,;:.]\\|\\)"
-                                         (regexp-quote tag)) nil t)
-              (replace-match "\\1")
-              (textile-end-tag-insert html-tag)))))))
+            (if (not (string= tag "=="))
+                (let ((attributes (textile-attributes "[A-Za-z0-9]"))
+                      (html-tag (textile-generate-inline-tag
+                                 tag
+                                 textile-inline-tag-list)))
+                  (textile-delete-attributes attributes t)
+                  (textile-tag-insert html-tag attributes)
+                  (re-search-forward (concat
+                                      (regexp-quote tag)
+                                      "\\($\\|\s\\|[<,;:!?.]\\)") nil t)
+                  (replace-match (concat "</" html-tag ">\\1")))
+              (re-search-forward (concat (regexp-quote tag)
+                                         "\\($\\|\s\\|[<,;:!?.]\\)") nil t)
+              (replace-match "\\1")))))))
 
 (defun textile-generate-inline-tag (tag tag-list)
   "Convert textile tag to HTML tag or return nil if no match."
