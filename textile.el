@@ -92,7 +92,7 @@ determining where an extended block ends.")
 (defvar textile-list-tag-regexp
   ; FIXME - support for nested lists, v2 probably
   ; FIXME - adapt code for table rows to this regexp for lists
-  "^\\(([^ ]+?)\\|\\)\\([*#]\\)[^ ]* "
+  "^\\(([^ ]+?)\\|\\)\\([*#]+\\)[^ ]* "
   "All list block tags must match this.")
 
 (defvar textile-inline-tag-regexp
@@ -231,6 +231,24 @@ like that).")
             (setq my-plist (plist-put my-plist 'textile-tag "p"))
             (setq my-plist (plist-put my-plist 'textile-explicit nil))
             (list (textile-inline-to-list my-string) my-plist)))))
+       ((string-match textile-list-tag-regexp my-string)
+        (let* ((tag (match-string 2 my-string))
+               (l-attributes (plist-put
+                              (textile-attributes " "
+                                                  (match-string 1 my-string))
+                              'textile-tag
+                              (cond
+                               ((string-match "^#" tag)
+                                "ol")
+                               ((string-match "^[*]" tag)
+                                "ul")
+                               (t
+                                "?")))))
+          (if (not (string= (plist-get l-attributes 'textile-tag) "?"))
+              (textile-block-list my-string)
+            (setq my-plist (plist-put my-plist 'textile-tag "p"))
+            (setq my-plist (plist-put my-plist 'textile-explicit nil))
+            (list (textile-inline-to-list my-string) my-plist))))
        (t
         (setq my-plist (plist-put my-plist 'textile-tag "p"))
         (setq my-plist (plist-put my-plist 'textile-explicit nil))
@@ -296,8 +314,10 @@ like that).")
     (setq my-string (replace-match "<br />\n\\1" nil nil my-string)))
   (while (string-match "</tr>\\(.\\)" my-string)
     (setq my-string (replace-match "</tr>\n\\1" nil nil my-string)))
-  (while (string-match "</p><p>" my-string)
-    (setq my-string (replace-match "</p>\n\n<p>" nil nil my-string)))
+  (while (string-match "</p><p" my-string)
+    (setq my-string (replace-match "</p>\n\n<p" nil nil my-string)))
+  (while (string-match "<\\(/li\\|ol\\|ul\\)>\\(.\\)" my-string)
+    (setq my-string (replace-match "<\\1>\n\\2" nil nil my-string)))
   my-string)
 
 (defun textile-code-to-blocks (start end)
@@ -876,6 +896,102 @@ HTML-formatted this definition list."
 ;;     (textile-end-tag-insert "dd")
 ;;     (textile-end-tag-insert "dl")
 ;;     (textile-next-paragraph)))
+
+(defun textile-block-list (my-string)
+  "Handled the list block MY-STRING with attributes L-ATTRIBUTES."
+;;   (when (plist-get l-attributes 'textile-extended)
+;;     (textile-error "Extended list block doesn't make sense.")
+;;     (setq l-attributes (plist-put l-attributes 'textile-extended nil)))
+;;   (if (string-match (regexp-quote (plist-get l-attributes
+;;                                              'textile-attrib-string))
+;;                     my-string)
+;;       (setq my-string (replace-match "" nil nil my-string)))
+  (if (string-match "^\\([#*]+\\)" my-string)
+      (let ((my-start-level (length (match-string 1 my-string)))
+            (my-list (split-string my-string "\n")))
+        (setq my-list (textile-organize-lists my-start-level my-list))
+        (textile-process-li my-list))))
+
+(defun textile-process-li (my-list)
+  (let ((first-string-pos 0))
+    (while (and (< first-string-pos (safe-length my-list))
+                (not (stringp (nth first-string-pos my-list))))
+      (setq first-string-pos (1+ first-string-pos)))
+    (if (not (< first-string-pos (safe-length my-list)))
+        nil
+      (if (string-match textile-list-tag-regexp (nth first-string-pos
+                                                     my-list))
+          (let* ((sample-string (nth first-string-pos my-list))
+                 (tag (match-string 2 sample-string))
+                 (l-attributes
+                  (plist-put
+                   (textile-attributes " "
+                                       (match-string 1 sample-string))
+                   'textile-tag
+                   (cond
+                    ((string-match "^#" tag)
+                     "ol")
+                    ((string-match "[*]" tag)
+                     "ul")
+                    (t "?")))))
+            (append (mapcar
+                     (function
+                      (lambda (x)
+                        (if (listp x)
+                            (textile-process-li x)
+                          (if (string-match "^\\(([^ ]+?)\\|\\)[#*]+" x)
+                              (setq x (replace-match "" nil nil x)))
+                          (let ((attributes (textile-attributes " " x)))
+                            (setq x (substring x (length
+                                                  (plist-get
+                                                   attributes
+                                                   'textile-attrib-string))))
+                            (list (textile-inline-to-list x)
+                                  (plist-put attributes 'textile-tag
+                                             "li"))))))
+                     my-list) (list l-attributes)))))))
+        
+(defun textile-organize-lists (last-level my-list)
+  (let ((new-list nil))
+    (while my-list
+      (let* ((this-item (car my-list))
+             (this-level (textile-list-level
+                          (if (string-match textile-list-tag-regexp this-item)
+                              (match-string 2 this-item))))
+             (push-this
+              (cond
+               ((> this-level last-level)
+                (textile-organize-lists this-level my-list))
+               ((< this-level last-level)
+                nil)
+               (t
+                this-item)))
+             (push-length (if (and push-this (listp push-this))
+                              (textile-recursive-length push-this)
+                            1)))
+        (if push-this
+            (push push-this new-list))
+        (if (< this-level last-level)
+            (setq my-list nil)
+          (setq my-list (nthcdr push-length my-list)))))
+    (reverse new-list)))
+
+(defun textile-list-level (my-tag)
+;  (let ((x (length my-tag)))
+;    (if (string-match "^#" my-tag)
+;        (+ 1000 x)
+;      x)))
+  (length my-tag))
+
+(defun textile-recursive-length (my-list)
+  (let ((i 0))
+    (setq my-list (mapcar (function (lambda (x)
+                                      (if (listp x)
+                                          (textile-recursive-length x)
+                                        1))) my-list))
+    (dolist (x my-list)
+      (setq i (+ i x)))
+    i))
 
 ;; (defun textile-block-ol (l-attributes)
 ;;   "Handle the ordered list block starting at (point).
