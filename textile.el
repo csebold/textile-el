@@ -232,23 +232,7 @@ like that).")
             (setq my-plist (plist-put my-plist 'textile-explicit nil))
             (list (textile-inline-to-list my-string) my-plist)))))
        ((string-match textile-list-tag-regexp my-string)
-        (let* ((tag (match-string 2 my-string))
-               (l-attributes (plist-put
-                              (textile-attributes " "
-                                                  (match-string 1 my-string))
-                              'textile-tag
-                              (cond
-                               ((string-match "^#" tag)
-                                "ol")
-                               ((string-match "^[*]" tag)
-                                "ul")
-                               (t
-                                "?")))))
-          (if (not (string= (plist-get l-attributes 'textile-tag) "?"))
-              (textile-block-list my-string)
-            (setq my-plist (plist-put my-plist 'textile-tag "p"))
-            (setq my-plist (plist-put my-plist 'textile-explicit nil))
-            (list (textile-inline-to-list my-string) my-plist))))
+        (textile-block-list my-string))
        (t
         (setq my-plist (plist-put my-plist 'textile-tag "p"))
         (setq my-plist (plist-put my-plist 'textile-explicit nil))
@@ -260,6 +244,13 @@ like that).")
     (cond
      ; break it up for inline tags
      )
+    ; from this point on there will be no more converting ampersands
+    ; to &amp;
+    (while (string-match "\\([^\000-\177]+\\)" my-string)
+      (let* ((non-ascii-string (match-string 1 my-string))
+             (replacement (save-match-data
+                            (textile-non-ascii-to-unicode non-ascii-string))))
+        (setq my-string (replace-match replacement nil nil my-string))))
     (if my-plist
         (list my-string my-plist)
       my-string)))
@@ -316,67 +307,11 @@ like that).")
     (setq my-string (replace-match "</tr>\n\\1" nil nil my-string)))
   (while (string-match "</p><p" my-string)
     (setq my-string (replace-match "</p>\n\n<p" nil nil my-string)))
-  (while (string-match "<\\(/li\\|ol\\|ul\\)>\\(.\\)" my-string)
+  (while (string-match "<\\(/li\\|/?ol\\|/?ul\\)>\\(.\\)" my-string)
     (setq my-string (replace-match "<\\1>\n\\2" nil nil my-string)))
+  (while (string-match "\\(.\\)\\(<li[ >]\\)" my-string)
+    (setq my-string (replace-match "\\1\n\\2" nil nil my-string)))
   my-string)
-
-(defun textile-code-to-blocks (start end)
-  "Block process region from START to END.
-This is the primary processing loop in textile.el."
-  (save-excursion
-    (save-restriction
-      (narrow-to-region start end)
-      (goto-char (point-min))
-      (setq case-fold-search nil)
-      (save-excursion
-        ; process aliases
-        (setq textile-alias-list textile-alias-list-defaults)
-        (textile-process-aliases))
-      (while
-          (cond
-           ((looking-at "^clear[<>]?\\. *\n")
-            (textile-block-clear))
-           ; if we're looking at "table" then we need to setq
-           ; Textile-in-table-outer-tag to t so that alignment
-           ; is handled properly - FIXME
-           ((looking-at textile-block-tag-regexp)
-            (let* ((tag (match-string 1))
-                   (attributes (textile-attributes " " (match-string 2)))
-                   (extended (string= (match-string 3) ".."))
-                   (my-function
-                    (car (read-from-string (concat "textile-block-" tag)))))
-              (setq attributes (plist-put attributes 'textile-extended
-                                          extended))
-              (cond
-               ((fboundp my-function)
-                (funcall my-function attributes))
-               ((string-match "^h[1-6]$" tag)
-                (setq attributes (plist-put attributes 'textile-hlevel
-                                            (substring tag 1 2)))
-                (textile-block-header attributes))
-               ((string-match "^fn[0-9]+$" tag)
-                (setq attributes (plist-put attributes 'textile-fn-num
-                                            (substring tag 2)))
-                (setq attributes (plist-put attributes 'class "footnote"))
-                (setq attributes (plist-put attributes 'id tag))
-                (textile-block-footnote attributes))
-               (t (textile-block-p nil)))))
-           ((looking-at textile-list-tag-regexp)
-            (let* ((tag (match-string 2))
-                   (l-attributes (textile-attributes " " (match-string 1))))
-              (cond
-               ((string= tag "#")
-                (textile-block-ol l-attributes))
-               ((string= tag "*")
-                (textile-block-ul l-attributes))
-               (t
-                (textile-block-p nil)))))
-           ((looking-at "^== *\n")
-            (textile-block-escape))
-           ((looking-at "|")
-            (textile-block-table nil))
-           (t (textile-block-p nil))))
-      (widen))))
 
 (defun textile-process-aliases ()
   "Process the entire buffer, finding and removing aliases."
@@ -385,7 +320,6 @@ This is the primary processing loop in textile.el."
        ((looking-at "\\[.*?\\].+")
         (textile-block-alias))
        (t (textile-next-paragraph)))))
-
 
 (defun textile-attributes (&optional stop-regexp attrib-string)
   "Return a plist of attributes from (point) or ATTRIB-STRING.
@@ -411,6 +345,7 @@ or STOP-REGEXP."
         (colspan nil)
         (textile-header nil)
         (not-finished t)
+        (textile-well-formed t)
         (stop-regexp (or stop-regexp
                          " "))
         (attrib-string (or attrib-string
@@ -492,6 +427,7 @@ or STOP-REGEXP."
             (t
             ; if you hit something you don't recognize, then this
             ; isn't an attribute string
+             (setq textile-well-formed nil)
              (setq not-finished nil)))))
        (setq my-plist (plist-put my-plist 'textile-attrib-string
                                  (buffer-substring (point-min)
@@ -508,7 +444,7 @@ or STOP-REGEXP."
        (setq style (replace-match "float: \\1; " nil nil style)))
      (dolist (this-variable '(style class id lang align valign
                                     colspan rowspan
-                                    textile-header))
+                                    textile-header textile-well-formed))
        (when (string= (eval this-variable) "")
          (set this-variable nil))
        (setq my-plist (plist-put my-plist this-variable (eval this-variable))))
@@ -625,12 +561,6 @@ footnotes, etc."
       (if (match-string 3)
           (replace-match "<acronym title=\"\\3\">\\1</acronym>" t)
         (replace-match "<acronym>\\1</acronym>" t))))
-  (save-excursion
-    (while (re-search-forward "\\([^\000-\177]+\\)" nil t)
-      (let* ((non-ascii-string (match-string 1))
-             (replacement (save-match-data
-                            (textile-non-ascii-to-unicode non-ascii-string))))
-        (replace-match replacement))))
   (save-excursion
     (while (re-search-forward
             "\"\\([^\"]*?\\)\":\\([^ ]*?\\)\\([,.;:]?\\(?: \\|$\\)\\)"
@@ -889,28 +819,27 @@ HTML-formatted this definition list."
                              (list 'textile-tag "dt")) "\n") my-list)
               (append (textile-inline-to-list this-string) my-list))))
     (append (reverse my-list) (list attributes))))
-;;     (textile-delete-tag "dl")
-;;     (textile-tag-insert "dl" attributes)
-;;     (textile-process-definition-block)
-;;     (textile-end-of-paragraph)
-;;     (textile-end-tag-insert "dd")
-;;     (textile-end-tag-insert "dl")
-;;     (textile-next-paragraph)))
 
 (defun textile-block-list (my-string)
   "Handled the list block MY-STRING with attributes L-ATTRIBUTES."
-;;   (when (plist-get l-attributes 'textile-extended)
-;;     (textile-error "Extended list block doesn't make sense.")
-;;     (setq l-attributes (plist-put l-attributes 'textile-extended nil)))
-;;   (if (string-match (regexp-quote (plist-get l-attributes
-;;                                              'textile-attrib-string))
-;;                     my-string)
-;;       (setq my-string (replace-match "" nil nil my-string)))
-  (if (string-match "^\\([#*]+\\)" my-string)
-      (let ((my-start-level (length (match-string 1 my-string)))
-            (my-list (split-string my-string "\n")))
-        (setq my-list (textile-organize-lists my-start-level my-list))
-        (textile-process-li my-list))))
+  (let ((temp-string (substring my-string
+                                (length
+                                 (plist-get
+                                  (textile-attributes "[#*]" my-string)
+                                  'textile-attrib-string)))))
+    (if (string-match "^\\([#*]+\\)" temp-string)
+        (setq temp-string (replace-match "" nil nil temp-string)))
+    (if (plist-get (textile-attributes " " temp-string)
+                   'textile-well-formed)
+        (if (string-match "^\\([#*]+\\)" my-string)
+            (let ((my-start-level (length (match-string 1 my-string)))
+                  (my-list (split-string my-string "\n")))
+              (setq my-list (textile-organize-lists my-start-level my-list))
+              (textile-process-li my-list)))
+      (list (textile-inline-to-list my-string)
+            (plist-put
+             (plist-put nil 'textile-tag "p")
+             'textile-explicit nil)))))
 
 (defun textile-process-li (my-list)
   (let ((first-string-pos 0))
@@ -993,50 +922,6 @@ HTML-formatted this definition list."
       (setq i (+ i x)))
     i))
 
-;; (defun textile-block-ol (l-attributes)
-;;   "Handle the ordered list block starting at (point).
-;; Finish at the beginning of the next paragraph, having completely
-;; HTML-formatted this ordered list."
-;;   (if (save-excursion
-;;         (re-search-forward "#" nil t)
-;;         (let ((attributes (textile-attributes)))
-;;           (> (length (plist-get attributes 'textile-attrib-string)) 0)))
-;;       (progn
-;;         (delete-region (point)
-;;                        (re-search-forward "#" nil t))
-;;         (textile-tag-insert "ol" l-attributes)
-;;         (insert "\n")
-;;         (let ((attributes (textile-attributes)))
-;;           (textile-delete-attributes attributes)
-;;           (textile-tag-insert "li" attributes))
-;;         (textile-process-list-block)
-;;         (textile-end-of-paragraph)
-;;         (insert "</li>\n</ol>")
-;;         (textile-next-paragraph))
-;;     (textile-block-p nil)))
-
-;; (defun textile-block-ul (l-attributes)
-;;   "Handle the unordered list block starting at (point).
-;; Finish at the beginning of the next paragraph, having completely
-;; HTML-formatted this unordered list."
-;;   (if (save-excursion
-;;         (re-search-forward "\\*" nil t)
-;;         (let ((attributes (textile-attributes)))
-;;           (> (length (plist-get attributes 'textile-attrib-string)) 0)))
-;;       (progn
-;;         (delete-region (point)
-;;                        (re-search-forward "\\*" nil t))
-;;         (textile-tag-insert "ul" l-attributes)
-;;         (insert "\n")
-;;         (let ((attributes (textile-attributes)))
-;;           (textile-delete-attributes attributes)
-;;           (textile-tag-insert "li" attributes))
-;;         (textile-process-list-block)
-;;         (textile-end-of-paragraph)
-;;         (insert "</li>\n</ul>")
-;;         (textile-next-paragraph))
-;;     (textile-block-p nil)))
-
 (defun textile-all-but-last (my-list)
   "Return everything in the list but the last item."
   (reverse (cdr (reverse my-list))))
@@ -1055,12 +940,6 @@ HTML-formatted this table."
                       (split-string my-string " *| *\\(?:\n\\|$\\)"))))
     (append
      (mapcar 'textile-table-row-process my-row-list) (list attributes))))
-;;     (textile-tag-insert "table" attributes)
-;;     (makunbound 'Textile-in-table-outer-tag)
-;;     (textile-process-table-block)
-;;     (textile-end-of-paragraph)
-;;     (textile-end-tag-insert "table")
-;;     (textile-next-paragraph)))
 
 (defun textile-table-row-process (this-string)
   (let* ((my-cell-list (split-string this-string " *| *"))
@@ -1095,31 +974,6 @@ HTML-formatted this table."
     (list (textile-inline-to-list this-cell)
           cell-attributes)))
 
-;; (defun textile-block-escape ()
-;;   "Handle the escaped block starting at (point).
-;; Finish at the beginning of the next paragraph, having completely
-;; ignored this escaped block."
-;;   (delete-region
-;;    (save-excursion
-;;      (beginning-of-line)
-;;      (point))
-;;    (save-excursion
-;;      (end-of-line)
-;;      (if (looking-at "\n")
-;;          (forward-char 1))
-;;      (point)))
-;;   (re-search-forward "^== *$" nil t)
-;;   (delete-region
-;;    (save-excursion
-;;      (beginning-of-line)
-;;      (point))
-;;    (save-excursion
-;;      (end-of-line)
-;;      (if (looking-at "\n")
-;;          (forward-char 1))
-;;      (point)))
-;;   (textile-next-paragraph))
-
 (defun textile-block-p (my-string attributes)
   "Handle the paragraph block starting at (point).
 Finish at the beginning of the next paragraph, having completely
@@ -1131,13 +985,6 @@ HTML-formatted this paragraph."
       (setq my-string (replace-match "" nil nil my-string)))
   (setq attributes (plist-put attributes 'textile-tag "p"))
   (list (textile-inline-to-list my-string) attributes))
-;;   (if (looking-at (textile-this-block-tag-regexp "p"))
-;;       (textile-delete-tag "p"))
-;;   (textile-tag-insert "p" attributes)
-;;   (textile-process-block)
-;;   (textile-end-of-paragraph)
-;;   (textile-end-tag-insert "p")
-;;   (textile-next-paragraph))
 
 (defun textile-block-footnote (my-string attributes)
   "Handle the footnote starting at (point).
@@ -1152,13 +999,6 @@ HTML-formatted this footnote."
   (list (list (plist-get attributes 'textile-fn-num)
               (plist-put nil 'textile-tag "sup"))
         " " (textile-inline-to-list my-string) attributes))
-;;     (textile-delete-tag (plist-get attributes 'id))
-;;     (textile-tag-insert "p" attributes)
-;;     (insert "<sup>" (plist-get attributes 'textile-fn-num) "</sup> ")
-;;     (textile-process-block)
-;;     (textile-end-of-paragraph)
-;;     (textile-end-tag-insert "p")
-;;     (textile-next-paragraph)))
 
 (defun textile-block-header (my-string attributes)
   "Handle the header block starting at (point).
@@ -1172,13 +1012,6 @@ HTML-formatted this header."
         (setq my-string (replace-match "" nil nil my-string)))
     (setq attributes (plist-put attributes 'textile-tag my-tag))
     (list (textile-inline-to-list my-string) attributes)))
-;;     (let ((my-tag (concat "h" (plist-get attributes 'textile-hlevel))))
-;;       (textile-delete-tag my-tag)
-;;       (textile-tag-insert my-tag attributes)
-;;       (textile-process-block)
-;;       (textile-end-of-paragraph)
-;;       (textile-end-tag-insert my-tag)
-;;       (textile-next-paragraph))))
 
 (defun textile-block-bq (my-string attributes)
   (setq attributes (plist-put attributes 'textile-tag "blockquote"))
@@ -1187,66 +1020,6 @@ HTML-formatted this header."
   (list (list (textile-inline-to-list my-string)
               (plist-put nil 'textile-tag "p"))
         attributes))
-;; (defun textile-block-bq (attributes)
-;;   "Handle the blockquote block starting at (point).
-;; Finish at the beginning of the next paragraph, having completely
-;; HTML-formatted this blockquote."
-;;   (textile-delete-tag "bq")
-;;   (textile-tag-insert "blockquote" attributes)
-;;   (if (plist-get attributes 'textile-extended)
-;;       (while
-;;           (progn
-;;             (textile-tag-insert "p" nil)
-;;             (textile-process-block)
-;;             (textile-end-of-paragraph)
-;;             (textile-end-tag-insert "p")
-;;             (when (save-excursion
-;;                     (textile-next-paragraph)
-;;                     (and (not (looking-at textile-any-block-tag-regexp))
-;;                          (not (eobp))))
-;;               (textile-next-paragraph))))
-;;     (textile-tag-insert "p" nil)
-;;     (textile-process-block)
-;;     (textile-end-of-paragraph)
-;;     (textile-end-tag-insert "p"))
-;;   (textile-end-tag-insert "blockquote")
-;;   (textile-next-paragraph))
-
-;; (defun textile-block-bc (attributes)
-;;   "Handle the blockcode block starting at (point).
-;; Finish at the beginning of the next paragraph, having completely
-;; HTML-formatted this preformatted block of code."
-;;   (textile-delete-tag "bc")
-;;   (textile-tag-insert "pre" attributes)
-;;   (textile-tag-insert "code" nil)
-;;   (if (plist-get attributes 'textile-extended)
-;;       (while
-;;           (progn
-;;             (textile-process-pre-block)
-;;             (textile-end-of-paragraph)
-;;             (when (save-excursion
-;;                     (textile-next-paragraph)
-;;                     (and (not (looking-at textile-any-block-tag-regexp))
-;;                          (not (eobp))))
-;;               (textile-next-paragraph))))
-;;     (textile-process-pre-block)
-;;     (textile-end-of-paragraph))
-;;   (textile-end-tag-insert "code")
-;;   (textile-end-tag-insert "pre")
-;;   (textile-next-paragraph))
-
-;; (defun textile-delete-tag (&optional tag)
-;;   "Delete the standard textile block tag at (point), or TAG.
-;; TAG is a regular expression."
-;;   (delete-region
-;;    (point)
-;;    (save-excursion
-;;      (re-search-forward
-;;       (if tag
-;;           (textile-this-block-tag-regexp tag)
-;;         textile-block-tag-regexp)
-;;       nil t)
-;;      (point))))
 
 (defun textile-error (error-message)
   "Break with an error if textile-error-break is t.
@@ -1274,11 +1047,6 @@ continue."
   "Process MY-STRING, return XHTML-encoded string."
   (textile-list-to-blocks (textile-string-to-list my-string)))
 
-;; (defun textile-tag-insert (tag my-plist)
-;;   "Insert HTML tag TAG with attributes based on MY-PLIST.
-;; Any attributes that start with \"textile-\" will be ignored."
-;;   (insert "<" tag (textile-generate-attribute-string my-plist) ">"))
-
 (defun textile-generate-attribute-string (my-plist)
   "Generate an attribute string based on MY-PLIST.
 Any attributes that start with \"textile-\" will be ignored."
@@ -1300,26 +1068,5 @@ Any attributes that start with \"textile-\" will be ignored."
               (textile-generate-attribute-string my-plist) ">"
               my-string "</" (plist-get my-plist 'textile-tag) ">")
     my-string))
-
-;; (defun textile-end-tag-insert (tag)
-;;   "Close the HTML tag corresponding to TAG."
-;;   (insert (concat "</" tag ">")))
-
-;; (defun textile-next-paragraph ()
-;;   "Go to the beginning of the next paragraph, as defined by Textile."
-;;   (re-search-forward "^\n+" nil 1))
-
-;; (defun textile-end-of-paragraph ()
-;;   "Go to the end of this paragraph, as defined by Textile."
-;;   (textile-next-paragraph)
-;;   (backward-char 1)
-;;   (while (looking-at "\n")
-;;     (backward-char 1))
-;;   (forward-char 1))
-
-;; (defun textile-delete-attributes (attributes)
-;;   "Delete textile-tagged attributes starting at (point)."
-;;   (if (looking-at (regexp-quote (plist-get attributes 'textile-attrib-string)))
-;;       (replace-match "")))
 
 (provide 'textile)
