@@ -424,9 +424,9 @@ footnotes, etc."
   (save-excursion
     (while (re-search-forward "\\[\\([0-9]+\\)\\]" nil t)
       (replace-match
-       "<sup class=\"footnote\"><a href=\"#fn\\1\">\\1</a></sup>")))
+       "<sup class=\"footnote\"><a href=\"#fn\\1\">\\1</a></sup>" t)))
   (save-excursion
-    (while (re-search-forward "\\([A-Z]\\{3,\\}\\)\\((\\(.*?\\))\\|\\)"
+    (while (re-search-forward "\\<\\([A-Z]\\{3,\\}\\)\\((\\(.*?\\))\\|\\)"
                               nil t)
       (if (match-string 3)
           (replace-match "<acronym title=\"\\3\">\\1</acronym>" t)
