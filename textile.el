@@ -259,11 +259,11 @@ like that).")
      ; break it up for inline tags
        )
     ; turn my-string into a list of strings
+      (setq my-list (mapcar 'textile-process-image my-list))
       (setq my-list (mapcar 'textile-process-footnote my-list))
       (setq my-list (mapcar 'textile-process-acronym my-list))
-      (setq my-list (mapcar 'textile-process-inline my-list))
-      (setq my-list (mapcar 'textile-process-image my-list))
       (setq my-list (mapcar 'textile-process-link my-list))
+      (setq my-list (mapcar 'textile-process-inline my-list))
       (setq my-list (mapcar 'textile-process-ampersand my-list))
     ; from this point on there will be no more converting ampersands
     ; to &amp;
@@ -516,7 +516,7 @@ like that).")
                             (split-string (cadr my-list) "x")
                           nil)))
     (setq attributes (plist-put attributes 'textile-tag "img"))
-    (setq attributes (plist-put attributes 'title title))
+    (setq attributes (plist-put attributes 'alt title))
     (setq attributes (plist-put attributes 'src (car my-list)))
     (if (> (safe-length my-dimensions) 1)
         (progn
