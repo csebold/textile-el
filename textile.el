@@ -618,7 +618,7 @@ If ARG, insert string at point."
             nil nil my-string)))
     ; images
    (while (string-match
-           "\\(!\\([^!]+?\\) *\\((\\(.*?\\))\\)?!\\)\\(:\\([^ ]*?\\)\\([,.;:]?\\(?: \\|$\\)\\)\\)?"
+           "\b\\(!\\([^!]+?\\) *\\((\\(.*?\\))\\)?!\\)\\(:\\([^ ]*?\\)\\([,.;:]?\\(?: \\|$\\)\\)\\)?"
            my-string)
      (if (match-string 5 my-string)
          (progn
@@ -781,7 +781,7 @@ If ARG, insert string at point."
   "Process all images in a given string or list of strings."
   (textile-skip-tags 'textile-process-image my-string
     (if (string-match
-         "!\\([^!]+?\\) *\\((\\(.*?\\))\\)?!\\(?::\\([^ ]*?\\)\\([,.;:]?\\(?: \\|$\\)\\)\\)?" my-string)
+         "\b!\\([^!]+?\\) *\\((\\(.*?\\))\\)?!\\(?::\\([^ ]*?\\)\\([,.;:]?\\(?: \\|$\\)\\)\\)?" my-string)
         (if (not (equal (match-beginning 0) 0))
             (list (substring my-string 0 (match-beginning 0))
                   (textile-process-image (substring my-string
