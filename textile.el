@@ -439,7 +439,7 @@ footnotes, etc."
         (replace-match replacement))))
   (save-excursion
     (while (re-search-forward
-            "\"\\(.*?\\)\":\\([^ ]*?\\)\\([,.;:]?\\(?: \\|$\\)\\)"
+            "\"\\([^\"]*?\\)\":\\([^ ]*?\\)\\([,.;:]?\\(?: \\|$\\)\\)"
             nil t)
       (let* ((text (match-string 1))
              (url (match-string 2))
