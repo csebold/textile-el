@@ -1,7 +1,5 @@
 ==
 <!-- $Id$ -->
-
-This is a long escaped block.
 ==
 
 p((<>[11](my_class). This is a Textile test.
@@ -12,7 +10,11 @@ h1. This is a first-level header.
 #(listclass2) This is the second.
 
 # This should be the first entry in a new ordered list.
-# And this should be the second.
+# This should be the second.
+** The third entry is a nested list.
+** See how I just mix and match lists?
+** This is supposed to be a v2 feature.
+# And this should be the third.
 
 * This is a single-item unordered list.
 
