@@ -34,6 +34,12 @@
 ; support generating a separate HTML buffer and leaving the old one
 ; intact
 
+; Imagine having Textile take a string, and then convert it to a list of
+; that string, and then gradually break that string into several list
+; items, and that way it can keep track of what it has already
+; processed!  That might be necessary before 1.0 can be released.  That
+; will be a fairly big rewrite of the block and inline handling code.
+
 ; Todo for release 2.0: support all of BC's Textile 2.0 as demonstrated
 ; at http://bradchoate.com/tools/textile/.  Possibly also built-in
 ; support for longlines.el and things like that, so that you can work
