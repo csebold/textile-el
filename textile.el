@@ -129,12 +129,16 @@ like that).")
 
 (defun textile-string-to-list (my-string)
   "Process textile-encoded MY-STRING and return a textile list tree."
-  (setq textile-alias-list textile-alias-list-defaults)
-  (let ((blocks (textile-blockcode-blocks
-                 (textile-escape-blocks (split-string
-                                         (textile-process-aliases
-                                          my-string) "\n\n")))))
-    (delete "" (mapcar 'textile-block-to-list blocks))))
+  (let ((old-eval-depth max-lisp-eval-depth))
+    (setq max-lisp-eval-depth (+ 200 max-lisp-eval-depth))
+    (setq textile-alias-list textile-alias-list-defaults)
+    (prog1
+        (let ((blocks (textile-blockcode-blocks
+                       (textile-escape-blocks (split-string
+                                               (textile-process-aliases
+                                                my-string) "\n\n")))))
+          (delete "" (mapcar 'textile-block-to-list blocks)))
+      (setq max-lisp-eval-depth old-eval-depth))))
 
 (defun textile-escape-blocks (my-list)
   "In a list of block strings, bring escaped blocks together."
