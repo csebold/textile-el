@@ -112,6 +112,15 @@ determining where an extended block ends.")
 For each string to match should be either a string which is the URL, or
 a list whose car is the title and cadr is the URL.")
 
+(defvar textile-macros-list-defaults
+  '("->" "&#8594;" "(C)" "&#169;" "(R)" "&#174;" "(TM)" "&#8482;"
+    "\\(^\\| \\)--\\( \\|$\\)" "\\1&#8212;\\2" "<-" "&#8592;"
+    "\\(^\\| \\)-\\( \\|$\\)" "\\1&#8211;\\2" "\\.\\.\\." "&#8230;"
+    ; following this is the beginning attempt at quote education
+    "^\"\\|\"\\b" "&#8220;" "\\b\"\\|\"$" "&#8221;"
+    "^'\\|'\\b" "&#8216;" "\\b'\\|'$" "&#8217;")
+  "Code to be automatically converted to HTML entities or other things.")
+
 (defvar textile-error-break nil
   "Break parsing Textile when hitting a parsing error?
 Do you want a total failure when you hit a textile parsing
@@ -132,6 +141,7 @@ like that).")
   (let ((old-eval-depth max-lisp-eval-depth))
     (setq max-lisp-eval-depth (+ 200 max-lisp-eval-depth))
     (setq textile-alias-list textile-alias-list-defaults)
+    (setq textile-macros-list textile-macros-list-defaults)
     (prog1
         (let ((blocks (textile-blockcode-blocks
                        (textile-escape-blocks (split-string
@@ -271,6 +281,25 @@ like that).")
       (setq my-list (mapcar 'textile-process-non-ascii my-list))
       (append my-list (list my-plist)))))
 
+(defun textile-process-macros (my-string)
+  "Convert any macros found in MY-STRING to their equivalent entities."
+  (if (listp my-string)
+      (if (member 'textile-tag my-string)
+          my-string
+        (mapcar 'textile-process-macros my-string))
+    (with-temp-buffer
+      (setq case-fold-search t)
+      (insert my-string)
+      (let ((my-macros textile-macros-list))
+        (while my-macros
+          (let ((search-for (car my-macros))
+                (replace-with (cadr my-macros)))
+            (goto-char (point-min))
+            (while (re-search-forward search-for nil t)
+              (replace-match replace-with))
+            (setq my-macros (cddr my-macros)))))
+      (buffer-string))))
+
 (defun textile-process-newline (my-string)
   "Convert newlines to <br /> tags if so desired."
   (if textile-br-all-newlines
@@ -297,8 +326,8 @@ like that).")
       (goto-char (point-min))
       (save-excursion
         (while (re-search-forward "&" nil t)
-          (if (looking-at "\\w+;")
-              (re-search-forward "\\w+;" nil t)
+          (if (looking-at "#?\\w+;")
+              (re-search-forward "#?\\w+;" nil t)
             (replace-match "&amp;"))))
       (buffer-string))))
 
@@ -371,6 +400,7 @@ like that).")
                 (textile-process-inline (substring my-string
                                                    (match-end 3))))
               (plist-put nil 'textile-tag nil))
+      (setq my-string (textile-process-macros my-string))
       (if (string-match textile-inline-tag-regexp my-string)
           (if (not (equal (match-beginning 0) 0))
               (list (textile-remove-braces
@@ -1235,7 +1265,6 @@ Any attributes that start with \"textile-\" will be ignored."
 
 (defun textile-enclose-tag (my-string my-plist)
   "Enclose MY-STRING in a tag generated from information in MY-PLIST."
-  ; FIXME - handle empty tags like <img />
   (let ((my-tag (plist-get my-plist 'textile-tag)))
     (if my-tag
       (cond
