@@ -592,7 +592,7 @@ like that).")
       my-string)))
 
 (defun textile-process-non-ascii (my-string)
-  (textile-skip-data 'textile-process-non-ascii my-string
+  (textile-skip-tags 'textile-process-non-ascii my-string
     (while (string-match "\\([^\000-\177]+\\)" my-string)
       (let* ((non-ascii-string (match-string 1 my-string))
              (replacement (save-match-data
