@@ -99,7 +99,7 @@ determining where an extended block ends.")
    "\\(?:^\\|\\W\\)\\("
    "==\\|[_]\\{1,2\\}\\|[+]\\{1,2\\}\\|[-]\\{1,2\\}\\|[~^%@]"
    "\\|\\?\\?\\|[*]\\{1,2\\}"
-   "\\)\\(.+?\\)\\(\\1\\)\\(?:\\W\\|$\\)")
+   "\\)\\([^\000]+?\\)\\(\\1\\)\\(?:\\W\\|$\\)")
   "Should match any inline tag.")
 
 (defvar textile-inline-tag-list
@@ -360,7 +360,7 @@ like that).")
           my-string
         (mapcar 'textile-process-inline my-string))
     (if (string-match
-         "\\(?:^\\|\\W\\)\\(==\\)\\(.+?\\)\\(\\1\\)\\(?:\\W\\|\\$\\)"
+         "\\(?:^\\|\\W\\)\\(==\\)\\([^\000]+?\\)\\(\\1\\)\\(?:\\W\\|\\$\\)"
          my-string)
         (list (save-match-data
                 (textile-process-inline (substring my-string 0
@@ -390,7 +390,8 @@ like that).")
                                   (save-match-data
                                     (textile-attributes "[^})]]"
                                                         (match-string
-                                                         2 my-string)))
+                                                         2 my-string)
+                                                        'inline))
                                   'textile-tag  (textile-generate-inline-tag
                                                  (match-string 1 my-string)
                                                  textile-inline-tag-list)))
@@ -664,26 +665,32 @@ or STOP-REGEXP."
             ((looking-at "(.* .*)")
              ; parenthetical statement including a space
              (setq not-finished nil))
-            ((equal this-char ?\()
+            ((and (not (memq 'inline context))
+                  (equal this-char ?\())
              (setq left-pad (1+ left-pad))
              (forward-char 1))
-            ((equal this-char ?\))
+            ((and (not (memq 'inline context))
+                  (equal this-char ?\)))
              (setq right-pad (1+ right-pad))
              (forward-char 1))
-            ((equal this-char ?\>)
+            ((and (not (memq 'inline context))
+                  (equal this-char ?\>))
              (if (memq 'table context)
                  (setq align "right")
                (setq style (concat style "text-align: right; ")))
              (forward-char 1))
-            ((looking-at "<>")
+            ((and (not (memq 'inline context))
+                  (looking-at "<>"))
              (setq style (concat style "text-align: justify; "))
              (forward-char 2))
-            ((equal this-char ?\<)
+            ((and (not (memq 'inline context))
+                  (equal this-char ?\<))
              (if (memq 'table context)
                  (setq align "left")
                (setq style (concat style "text-align: left; ")))
              (forward-char 1))
-            ((equal this-char ?\=)
+            ((and (not (memq 'inline context))
+                  (equal this-char ?\=))
              (cond
               ((memq 'table context)
                (setq align "center"))
@@ -692,16 +699,20 @@ or STOP-REGEXP."
                                    "margin-left: auto; margin-right: auto; ")))
               (t (setq style (concat style "text-align: center; "))))
              (forward-char 1))
-            ((equal this-char ?^ )
+            ((and (memq 'table context)
+                  (equal this-char ?^ ))
              (setq valign "top")
              (forward-char 1))
-            ((equal this-char ?\~)
+            ((and (memq 'table context)
+                  (equal this-char ?\~))
              (setq valign "bottom")
              (forward-char 1))
-            ((looking-at "[\\]\\([0-9]+\\)")
+            ((and (memq 'table context)
+                  (looking-at "[\\]\\([0-9]+\\)"))
              (setq colspan (match-string 1))
              (re-search-forward "[\\]\\([0-9]+\\)" nil t))
-            ((looking-at "/\\([0-9]+\\)")
+            ((and (memq 'table context)
+                  (looking-at "/\\([0-9]+\\)"))
              (setq rowspan (match-string 1))
              (re-search-forward "/\\([0-9]+\\)" nil t))
             ((and
@@ -840,7 +851,9 @@ HTML-formatted this definition list."
             (setq my-new-list (nconc my-new-list (list this-line)))
           (setcar (nthcdr (- (safe-length my-new-list) 1) my-new-list)
                   (concat (nth (- (safe-length my-new-list) 1) my-new-list)
-                          "\n"
+                          (if textile-br-all-newlines
+                              "\n"
+                            " ")
                           this-line)))))
     (setq my-list nil)
     (dolist (this-string my-new-list)
@@ -886,7 +899,9 @@ HTML-formatted this definition list."
           (push this-item new-list)
         (setcar new-list
                 (concat (car new-list)
-                        "\n" this-item))))
+                        (if textile-br-all-newlines
+                            "\n"
+                          " ") this-item))))
     (reverse new-list)))
 
 (defun textile-process-li (my-list)
