@@ -187,12 +187,26 @@ like that).")
    (mapconcat 'textile-compile-string
               (textile-unextend-blocks my-list) "\n\n")))
 
+; here is a semi-working test case, that I am trying to make into a
+; function that will always work
+
+;; (setq x (list (list (list "asdf" (list 'textile-tag "p")) (list 'textile-tag "blockquote" 'textile-extended t)) (list "zxvc" (list 'textile-tag "p" 'textile-extended nil))))
+;; (setq this-object (nth 1 x))
+;; (setcdr (nthcdr 0 x) (nthcdr 2 x))
+;; (setq y (cdr (nth 0 x)))
+;; (append (reverse (cdr (reverse (car x)))) (list this-object) y)
+
+;; x
+;; this-object
+;; y
+
 (defun textile-unextend-blocks (my-list)
   "In a list of textile trees, pull extended blocks together."
   (let ((extended-p nil))
     ; could mapcar be used for this?  Not sure.  FIXME
     (dotimes (i (safe-length my-list))
-      (let ((this-object (nth i my-list)))
+      (let ((this-object (nth i my-list))
+            (temp nil))
         (if extended-p
             (if
                 (not (plist-get (car (last this-object))
@@ -203,12 +217,16 @@ like that).")
                           (nthcdr (+ i 1) my-list))
                   ; now iterate i downward, since the list size has changed
                   (setq i (- i 1))
+                  (setq temp (cdr (nth i my-list)))
+                  (setq my-list
+                        (append (textile-all-but-last (nth i my-list))
+                                (list this-object) temp))
                   ; now let's set the cdr of our object to the
                   ; attributes list of the last object
-                  (setcdr this-object (last (nth i my-list)))
+;                  (setcdr this-object (nth i my-list))
                   ; now let's set the cdr of the last item of the
                   ; second-to-last object in the last object to our object
-                  (setcdr (car (nth i my-list)) this-object)
+;                  (setcdr (car (nth i my-list)) this-object)
                   ; but the above doesn't do that yet, it's reversing
                   ; the order, FIXME (change "car" to "second-to-last"
                   ; or algorithm to that effect)
