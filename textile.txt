@@ -14,6 +14,8 @@ h1. This is a first-level header.
 
 * This is a single-item unordered list.
 
+p)>. This should be a paragraph, floated right and padded on the right by 1 em.
+
 bq. This is a blockquote.
 I am going to cut it into small lines
 With their own line breaks.
