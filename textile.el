@@ -166,7 +166,6 @@ This is the primary processing loop in textile.el."
                ((string= tag "*")
                 (textile-block-ul l-attributes))
                (t
-                (textile-error "What kind of list is this?")
                 (textile-block-p nil)))))
            ((looking-at "^== *\n")
             (textile-block-escape))
@@ -175,7 +174,7 @@ This is the primary processing loop in textile.el."
            (t (textile-block-p nil))))
       (widen))))
 
-(defun textile-attributes (stop-regexp &optional attrib-string)
+(defun textile-attributes (&optional stop-regexp attrib-string)
   "Return a plist of attributes from (point) or ATTRIB-STRING.
 If ATTRIB-STRING is non-nil, then make a new buffer with that;
 otherwise make a new buffer with the entirety of the buffer
@@ -199,6 +198,8 @@ or STOP-REGEXP."
         (colspan nil)
         (textile-header nil)
         (not-finished t)
+        (stop-regexp (or stop-regexp
+                         " "))
         (attrib-string (or attrib-string
                            (buffer-substring (point) (point-max)))))
      (makunbound 'Textile-next-block-clear)
@@ -268,12 +269,13 @@ or STOP-REGEXP."
             ((looking-at "/\\([0-9]+\\)")
              (setq rowspan (match-string 1))
              (re-search-forward "/\\([0-9]+\\)" nil t))
-            ((equal this-char ?\_)
+            ((and
+              (equal this-char ?\_)
+              (or
+               (boundp 'Textile-in-table)
+               (boundp 'Textile-in-table-outer-tag)))
              (setq textile-header t)
              (forward-char 1))
-;;             ((and (equal this-char ?\|)
-;;                   (boundp 'Textile-in-table))
-;;              (setq my-plist (plist-put nil 'textile-attrib-string-length 0)))
             (t
             ; if you hit something you don't recognize, then this
             ; isn't an attribute string
@@ -408,7 +410,7 @@ footnotes, etc."
                                           "\\(?:$\\|\s\\|[<,;:!?.]\\)") nil t)
                (point)))
             (if (not (string= tag "=="))
-                (let ((attributes (textile-attributes " "))
+                (let ((attributes (textile-attributes))
                       (html-tag (textile-generate-inline-tag
                                  tag
                                  textile-inline-tag-list)))
@@ -465,11 +467,10 @@ individual cells and rows as necessary."
   (setq Textile-in-table t)
   (save-excursion
     (while (not (eobp))
-      (let ((row-attributes (textile-attributes "|")))
+      (let ((row-attributes (textile-attributes " *|")))
         (textile-delete-attributes row-attributes)
         (textile-tag-insert "tr" row-attributes)
         (while (not (or (looking-at "\n") (eobp)))
-;          (let* ((cell-attributes (textile-attributes "[A-Za-z0-9]"))
           (let* ((cell-attributes (textile-attributes "[.] +"))
                  (header (or (plist-get row-attributes 'textile-header)
                              (plist-get cell-attributes 'textile-header))))
@@ -486,9 +487,7 @@ individual cells and rows as necessary."
                                         "th"
                                       "td"))))
         (textile-end-tag-insert "tr")
-        (re-search-forward "\n" nil 1)
-        (if (looking-at " *|")
-            (replace-match "")))))
+        (re-search-forward "\n" nil 1))))
   (makunbound 'Textile-in-table))
 
 (defun textile-inline-li ()
@@ -504,7 +503,7 @@ including attributes if necessary."
     (while (re-search-forward "\n\\([*#]\\)" nil t)
       (let ((tag (match-string 1)))
         (replace-match "</li>\n")
-        (let ((attributes (textile-attributes " ")))
+        (let ((attributes (textile-attributes)))
           (textile-delete-attributes attributes)
           (textile-tag-insert "li" attributes))))))
 
@@ -565,33 +564,45 @@ HTML-formatted this definition list."
   "Handle the ordered list block starting at (point).
 Finish at the beginning of the next paragraph, having completely
 HTML-formatted this ordered list."
-  (delete-region (point)
-                 (re-search-forward "#" nil t))
-  (textile-tag-insert "ol" l-attributes)
-  (insert "\n")
-  (let ((attributes (textile-attributes " ")))
-    (textile-delete-attributes attributes)
-    (textile-tag-insert "li" attributes))
-  (textile-process-list-block)
-  (textile-end-of-paragraph)
-  (insert "</li>\n</ol>")
-  (textile-next-paragraph))
+  (if (save-excursion
+        (re-search-forward "#" nil t)
+        (let ((attributes (textile-attributes)))
+          (> (length (plist-get attributes 'textile-attrib-string)) 0)))
+      (progn
+        (delete-region (point)
+                       (re-search-forward "#" nil t))
+        (textile-tag-insert "ol" l-attributes)
+        (insert "\n")
+        (let ((attributes (textile-attributes)))
+          (textile-delete-attributes attributes)
+          (textile-tag-insert "li" attributes))
+        (textile-process-list-block)
+        (textile-end-of-paragraph)
+        (insert "</li>\n</ol>")
+        (textile-next-paragraph))
+    (textile-block-p nil)))
 
 (defun textile-block-ul (l-attributes)
   "Handle the unordered list block starting at (point).
 Finish at the beginning of the next paragraph, having completely
 HTML-formatted this unordered list."
-  (delete-region (point)
-                 (re-search-forward "\\*" nil t))
-  (textile-tag-insert "ul" l-attributes)
-  (insert "\n")
-  (let ((attributes (textile-attributes " ")))
-    (textile-delete-attributes attributes)
-    (textile-tag-insert "li" attributes))
-  (textile-process-list-block)
-  (textile-end-of-paragraph)
-  (insert "</li>\n</ul>")
-  (textile-next-paragraph))
+  (if (save-excursion
+        (re-search-forward "\\*" nil t)
+        (let ((attributes (textile-attributes)))
+          (> (length (plist-get attributes 'textile-attrib-string)) 0)))
+      (progn
+        (delete-region (point)
+                       (re-search-forward "\\*" nil t))
+        (textile-tag-insert "ul" l-attributes)
+        (insert "\n")
+        (let ((attributes (textile-attributes)))
+          (textile-delete-attributes attributes)
+          (textile-tag-insert "li" attributes))
+        (textile-process-list-block)
+        (textile-end-of-paragraph)
+        (insert "</li>\n</ul>")
+        (textile-next-paragraph))
+    (textile-block-p nil)))
 
 (defun textile-block-table (attributes)
   "Handle the table block starting at (point).
