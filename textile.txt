@@ -11,9 +11,9 @@ h1. This is a first-level header.
 
 # This should be the first entry in a new ordered list.
 # This should be the second.
-** The third entry is a nested list.
+(#unordered)** The third entry is a nested list.
 ** See how I just mix and match lists?
-** This is supposed to be a v2 feature.
+**{color: red} This is supposed to be a v2 feature.
 # And this should be the third.
 
 * This is a single-item unordered list.
@@ -25,6 +25,8 @@ OK, "here is a link":http://www.livingtorah.org to my website.
 Let's try aliases: "here":ltm is the ministry link, and "here":ltj is the journal.
 
 And then "a normal link (Sun)":http://www.sun.com to Sun's website.
+
+And a "link including an ampersand":http://www.example.com/cgi-bin/test?a=b&c=d, which would also be a good way to see if the URL-finding code knows where to stop.
 
 Will thís be cônverted to Unicode, or at least entities?
 
@@ -69,7 +71,7 @@ table(tbl1). (head)|_. column 1 |_.      column 2 |_>.     column 3 |
 bc.. This is code
   Which you can see is a little bit
     indented and tells us that 2>1
-      And that 1 & 2 < 4
+      And that 1 & 2 < 4 but I'm going to hardcode an &amp; in here.
     Do you think this will work?
 
   Look, more indented code!
