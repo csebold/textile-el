@@ -274,7 +274,7 @@ If ARG, insert string at point."
 (defun textile-string-to-list (my-string)
   "Process textile-encoded MY-STRING and return a textile list tree."
   (let ((old-eval-depth max-lisp-eval-depth))
-    (setq max-lisp-eval-depth (+ 20 max-lisp-eval-depth))
+    (setq max-lisp-eval-depth (+ 40 max-lisp-eval-depth))
     (setq textile-alias-list textile-alias-list-defaults)
     (setq textile-macros-list textile-macros-list-defaults)
     (prog1
@@ -431,27 +431,16 @@ If ARG, insert string at point."
             (let* ((my-tag (match-string 1 this-item))
                    (my-attr (match-string 2 this-item))
                    (extended-p (match-string 3 this-item))
-                   (code-block (replace-match "" nil nil this-item))
+                   (code-block (textile-process-code
+                                (replace-match "" nil nil this-item)))
                    (hit-end nil))
               (if (string= extended-p "..")
-                  (while (and my-list (not hit-end))
-                    (if (or (not (stringp (car my-list)))
-                            (string-match textile-any-block-tag-regexp
-                                      (car my-list)))
-                        (progn
-                          (setq hit-end t)
-                          (push (list (list (textile-process-code code-block)
-                                            (list 'textile-tag "code"))
-                                      (plist-put my-attr 'textile-tag
-                                                 "pre"))
-                                new-list)
-                          (push (car my-list) new-list))
-                      (setq code-block (concat code-block "\n\n"
-                                               (car my-list))))
-                    (setq my-list (cdr my-list)))
-                (push (list (list code-block (list 'textile-tag "code"))
-                            (plist-put my-attr 'textile-tag "pre"))
-                                  new-list)))
+                  (setq code-block (concat code-block "\n\n"
+                                           (mapconcat 'textile-process-code
+                                                      my-list "\n\n"))))
+              (push (list (list code-block (list 'textile-tag "code"))
+                          (plist-put my-attr 'textile-tag "pre"))
+                    new-list))
           (push this-item new-list))))
     (reverse new-list)))
 
