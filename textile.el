@@ -115,6 +115,7 @@ a list whose car is the title and cadr is the URL.")
 
 (defvar textile-macros-list-defaults
   '("->" "&#8594;" "(C)" "&#169;" "(R)" "&#174;" "(TM)" "&#8482;"
+    "x\\([0-9]\\)" "&#215;\\1" ; 3x3
     "\\(^\\| \\)--\\( \\|$\\)" "\\1&#8212;\\2" "<-" "&#8592;"
     "\\(^\\| \\)-\\( \\|$\\)" "\\1&#8211;\\2"
     "\\.\\( ?\\)\\.\\1\\." "&#8230;")
@@ -128,6 +129,7 @@ a list whose car is the title and cadr is the URL.")
     " '" " &#8216;" ; any single-quote preceded by a space
     "\"\\( \\|$\\)" "&#8221;\\1" ; any double-quote followed by space
     "'\\( \\|$\\)" "&#8217;\\1" ; any single-quote followed by space
+    "\\([0-9]\\)'\\([0-9]\\)" "\\1&#8217;\\2" ; 5'11 works
     "\\`\"\\|\"\\b" "&#8220;" "\\b\"\\|\"\n\\|\"\\'" "&#8221;"
     "\\`'\\|'\\b" "&#8216;" "\\b'\\|'\n\\|'\\'" "&#8217;"
     "&#8220;'" "&#8220;&#8216;" "&#8216;\"" "&#8216;&#8220;"
@@ -431,6 +433,8 @@ like that).")
   "Process all acronyms in a given string or list of strings."
   (textile-skip-tags 'textile-process-acronym my-string
     (if (string-match "\\<\\([A-Z]\\{3,\\}\\)\\((\\(.*?\\))\\|\\)" my-string)
+        ; FIXME: W3C doesn't work, can a regexp have at least one but
+        ; not all numbers?
         (if (not (equal (match-beginning 0) 0))
             (list (substring my-string 0 (match-beginning 0))
                   (textile-process-acronym (substring my-string
@@ -817,7 +821,7 @@ like that).")
                       (setq text (match-string 1 text)))))
               (if (string= title "")
                   (setq title nil))
-              (list (list text
+              (list (list (textile-inline-to-list text)
                           (plist-put
                            (plist-put
                             (plist-put nil 'textile-tag "a")
