@@ -255,11 +255,44 @@ like that).")
      ; break it up for inline tags
      )
     ; turn my-string into a list of strings
+    (setq my-list (mapcar 'textile-process-footnote my-list))
     (setq my-list (mapcar 'textile-process-link my-list))
     ; from this point on there will be no more converting ampersands
     ; to &amp;
     (setq my-list (mapcar 'textile-process-non-ascii my-list))
     (append my-list (list my-plist))))
+
+(defun textile-process-footnote (my-string)
+  "Process all footnotes in a given string or list of strings."
+  (if (listp my-string)
+      (if (member 'textile-tag my-string)
+          my-string
+        (mapcar 'textile-process-footnote my-string))
+    (if (string-match "\\[\\([0-9]+\\)\\]" my-string)
+        (if (not (equal (match-beginning 0) 0))
+            (list (substring my-string 0 (match-beginning 0))
+                  (textile-process-footnote (substring my-string
+                                                       (match-beginning 0)
+                                                       (match-end 0)))
+                  (plist-put nil 'textile-tag nil))
+          (if (not (equal (match-end 0) (length my-string)))
+              (list (save-match-data
+                      (textile-process-footnote (substring my-string
+                                                           (match-beginning 0)
+                                                           (match-end 0))))
+                    (textile-process-footnote (substring my-string
+                                                         (match-end 0)))
+                    (plist-put nil 'textile-tag nil))
+            (list
+             (list
+              (match-string 1 my-string)
+              (plist-put
+               (plist-put 'nil 'textile-tag "a")
+               'href (concat "#fn" (match-string 1 my-string))))
+             (plist-put
+              (plist-put 'nil 'textile-tag "sup")
+              'class "footnote"))))
+      my-string)))
 
 (defun textile-process-link (my-string)
   "Process all links in a given string or list of strings."
@@ -638,6 +671,12 @@ supposed to be preformatted."
 
 (defun textile-non-ascii-to-unicode (string)
   "Convert STRING to Unicode entities."
+  ; this assumes that 'utf-16-be is a big-endian Unicode with signature,
+  ; and the (nthcdr 2 ...) bit removes the signature.  This works with
+  ; Emacs 21.3; this may need to be reworked for other versions of Emacs
+  ; 21 (it would appear that 21.4 and future versions will have a coding
+  ; system without the signature available; in those versions this code
+  ; does not yet work as expected).  FIXME
   (let ((unicode-string (encode-coding-string string 'utf-16-be))
         (unicode-values nil)
         (output ""))
