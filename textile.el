@@ -79,10 +79,6 @@ This is the primary processing loop in textile.el."
             (let* ((tag (match-string 1))
                    (attributes (textile-attributes " " (match-string 2)))
                    (extended (string= (match-string 3) ".."))
-                   (style (plist-get attributes 'style))
-                   (class (plist-get attributes 'class))
-                   (id (plist-get attributes 'id))
-                   (lang (plist-get attributes 'lang))
                    (my-function
                     (car (read-from-string (concat "textile-block-" tag)))))
               (setq attributes (plist-put attributes 'textile-extended
@@ -103,11 +99,7 @@ This is the primary processing loop in textile.el."
                (t (textile-block-p nil)))))
            ((looking-at textile-list-tag-regexp)
             (let* ((tag (match-string 2))
-                   (l-attributes (textile-attributes " " (match-string 1)))
-                   (style (plist-get l-attributes 'style))
-                   (class (plist-get l-attributes 'class))
-                   (id (plist-get l-attributes 'id))
-                   (lang (plist-get l-attributes 'lang)))
+                   (l-attributes (textile-attributes " " (match-string 1))))
               (cond
                ((string= tag "#")
                 (textile-block-ol l-attributes))
