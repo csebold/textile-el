@@ -1,25 +1,8 @@
 ; textile.el
 ; $Id$
 
-; ideas for breaking this code out into subroutines: Instead of using
-; regular expressions to process everything, let's go through the
-; buffer and deal with things one block at a time, and in cases where
-; there are blocks within blocks, we can reprocess the buffer after
-; removing things like the bq. tag.  Then we can call a handler for
-; each different kind of block, and if the handler doesn't exist, then
-; we assume that it's supposed to be there in the actual text.
-
-; I need to figure out how to process
-; p{style}. p[lang]. p(class#id). and p> p< p= p<> and p( or p)
-; handlers.  Filters will probably have to wait for v2 of this code;
+; Filters will probably have to wait for v2 of this code;
 ; that looks even harder.
-
-; Is there a standard emacs way to process paragraphs?  Will it work
-; with traditional Textile code?
-
-; I think that Textile was really made for OOP and I'm not sure how
-; well Emacs will stand up to the task.  I don't mind requiring 'cl if
-; I have to but I really didn't want to have to use EIEIO for this.
 
 (defvar textile-block-tag-regexp-start "^\\(")
 (defvar textile-block-any-tag-regexp "[a-z0-9]+")
@@ -65,7 +48,7 @@
   (widen))
 
 (defun textile-attributes (attrib-string)
-  (let ((my-plist '())
+  (let ((my-plist nil)
         (style "")
         (class nil)
         (id nil)
@@ -120,12 +103,11 @@
     (dolist (this-variable '('style 'class 'id 'lang))
       (if (string= (eval this-variable) "")
           (setq (eval this-variable) nil)))
-    (plist-put 'my-plist 'style style)
-    (plist-put 'my-plist 'class class)
-    (plist-put 'my-plist 'id id)
-    (plist-put 'my-plist 'lang lang)
-    (message "Plist is %s." my-plist)
-    (symbol-plist my-plist)))
+    (setq my-plist (plist-put my-plist 'style style))
+    (setq my-plist (plist-put my-plist 'class class))
+    (setq my-plist (plist-put my-plist 'id id))
+    (setq my-plist (plist-put my-plist 'lang lang))
+    my-plist))
 
 (defun textile-block-p (extended style class id lang)
   (if extended
