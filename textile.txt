@@ -20,6 +20,8 @@ What about _emphasized text with some *strong* text within it?_
 
 *_And what about something right at the beginning of a line?_*  Hm, what about that?  This isn't a list item, is it?
 
+And let's not forget that we should be able to _(emphasize things in parentheses without it trying to turn that into a style)._
+
 p)>. This should be a paragraph, floated right and padded on the right by 1 em.
 
 bq. This is a blockquote.
