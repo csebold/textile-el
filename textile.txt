@@ -26,7 +26,9 @@ which starts with no list item tag
 
 h2. Textile smart quotes tests:
 
-Paragraphs that "end in quotes don't seem to work right."
+Blocks that "end in quotes don't seem to work right."
+
+Don't look now, but here come the '80s.
 
 h2. Textile v1 image tests:
 
