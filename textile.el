@@ -53,7 +53,7 @@
                   (textile-block-header
                    (substring tag 1 2) extended style class id lang))
                  ((string-match "^fn[0-9]+$" tag)
-                  (textile-block-fn
+                  (textile-block-footnote
                    (substring tag 2) extended style "footnote" tag lang))
                  (t (textile-block-p nil nil nil nil nil)))))
           (textile-block-p nil nil nil nil nil))))
@@ -120,17 +120,34 @@
     (setq my-plist (plist-put my-plist 'lang lang))
     my-plist))
 
+(defun textile-process-block ()
+  (save-excursion
+    (save-restriction
+      (narrow-to-region (point)
+                        (save-excursion
+                          (textile-end-of-paragraph)
+                          (point)))
+      (if textile-br-all-newlines
+          (save-excursion
+            (while (re-search-forward "\n" nil t)
+              (backward-char 1)
+              (insert "<br />")
+              (forward-char 1))))
+      ; insert more inline tests here
+      )))
+
 (defun textile-block-p (extended style class id lang)
   (if extended
       (textile-error "Extended <p> block doesn't make sense.")
     (if (looking-at (textile-this-block-tag-regexp "p"))
         (textile-delete-tag "p"))
     (textile-block-start-tag-insert "p" style class id lang)
+    (textile-process-block)
     (textile-end-of-paragraph)
     (textile-block-end-tag-insert "p")
     (textile-next-paragraph)))
 
-(defun textile-block-fn (num extended style class id lang)
+(defun textile-block-footnote (num extended style class id lang)
   (if extended
       (textile-error "Extended fn? block doesn't make sense.")
     (textile-delete-tag id)
@@ -159,12 +176,14 @@
             (textile-block-start-tag-insert "p" nil nil nil nil)
             (textile-end-of-paragraph)
             (textile-block-end-tag-insert "p")
-            (if (save-excursion
-                  (textile-next-paragraph)
-                  (and (not (looking-at textile-block-tag-regexp))
-                       (not (eobp))))
-                (textile-next-paragraph))))
+            (when (save-excursion
+                    (textile-next-paragraph)
+                    (and (not (looking-at textile-block-tag-regexp))
+                         (not (eobp))))
+              (textile-process-block)
+              (textile-next-paragraph))))
     (textile-block-start-tag-insert "p" nil nil nil nil)
+    (textile-process-block)
     (textile-end-of-paragraph)
     (textile-block-end-tag-insert "p"))
   (textile-block-end-tag-insert "blockquote")
