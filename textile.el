@@ -50,7 +50,7 @@ determining where an extended block ends.")
   "All list block tags must match this.")
 
 (defvar textile-inline-tag-regexp
-  "\\b\\([*]\\{1,2\\}\\|[_]\\{1,2\\}\\|[+]\\{1,2\\}\\|[-]\\{1,2\\}\\|[~^%@]\\)"
+  "\\([*]\\{1,2\\}\\|[_]\\{1,2\\}\\|[+]\\{1,2\\}\\|[-]\\{1,2\\}\\|[~^%@]\\)\\<"
   "Should match any inline tag.")
 
 (defvar textile-inline-tag-list
@@ -281,7 +281,6 @@ functions, but handle new table rows in this block specially."
                           (textile-end-of-paragraph)
                           (point)))
       (textile-inline-table)
-      (textile-inline-generic)
       ; insert more inline tests here
       )))
 
@@ -328,27 +327,34 @@ footnotes, etc."
        "<sup class=\"footnote\"><a href=\"#fn\\1\">\\1</a></sup>")))
   (save-excursion
     (while (re-search-forward textile-inline-tag-regexp nil t)
-      (textile-handle-inline-tag (match-string 1))
-      (replace-match ""))))
+;      (insert "?->") ; debug to find where it finds these things first
+      (textile-handle-inline-tag (match-string 1)))))
 
 (defun textile-handle-inline-tag (tag)
   "Given TAG, properly handle everything to the end of this tag."
   (if (save-excursion
-        (re-search-forward (concat (regexp-quote tag) "\\b") nil t))
-      (save-excursion
-        (save-restriction
-          (narrow-to-region
-           (point)
-           (progn
-             (re-search-forward (concat (regexp-quote tag) "\\b") nil t)))
-          (let ((attributes (textile-attributes "[A-Za-z0-9]"))
-                (html-tag (textile-generate-inline-tag
-                           tag
-                           textile-inline-tag-list)))
-            (textile-delete-attributes attributes t)
-            (textile-tag-insert html-tag attributes)
-            (re-search-forward (concat (regexp-quote tag) "\\b") nil t)
-            (textile-end-tag-insert html-tag))))))
+        (re-search-forward (concat "\\(?:\\>\\|[,;:.]\\)"
+                                   (regexp-quote tag)) nil t))
+      (progn
+        (delete-region (- (point) (length tag)) (point))
+        (save-excursion
+          (save-restriction
+            (narrow-to-region
+             (point)
+             (save-excursion
+               (re-search-forward (concat "\\(?:\\>\\|[,;:.]\\)"
+                                          (regexp-quote tag)) nil t)
+               (point)))
+            (let ((attributes (textile-attributes "[A-Za-z0-9]"))
+                  (html-tag (textile-generate-inline-tag
+                             tag
+                             textile-inline-tag-list)))
+              (textile-delete-attributes attributes t)
+              (textile-tag-insert html-tag attributes)
+              (re-search-forward (concat "\\>\\([,;:.]\\|\\)"
+                                         (regexp-quote tag)) nil t)
+              (replace-match "\\1")
+              (textile-end-tag-insert html-tag)))))))
 
 (defun textile-generate-inline-tag (tag tag-list)
   "Convert textile tag to HTML tag or return nil if no match."
@@ -406,6 +412,7 @@ individual cells and rows as necessary."
                  "th"
                "td")
              cell-attributes)
+            ; FIXME - have to run textile-inline-generic here on the cell
             (if (re-search-forward " *|" nil t)
                 (replace-match ""))
             (textile-end-tag-insert (if header
