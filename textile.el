@@ -296,7 +296,7 @@ process functions (see textile-process-list-block, etc.)."
                         (save-excursion
                           (textile-end-of-paragraph)
                           (point)))
-      (textile-inline-entities)
+;      (textile-inline-entities)
       (textile-inline-newline)
       (textile-inline-generic)
       ; insert more inline tests here
@@ -312,7 +312,7 @@ functions, but handle new list items in this block specially."
                         (save-excursion
                           (textile-end-of-paragraph)
                           (point)))
-      (textile-inline-entities)
+;      (textile-inline-entities)
       (textile-inline-li)
       (textile-inline-generic)
       ; insert more inline tests here
@@ -343,7 +343,7 @@ specially."
                         (save-excursion
                           (textile-end-of-paragraph)
                           (point)))
-      (textile-inline-entities)
+;      (textile-inline-entities)
       (textile-inline-dl)
       (textile-inline-generic)
       ; insert more inline tests here
