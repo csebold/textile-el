@@ -18,6 +18,8 @@ Here are the inline tests: We have a *strong* and an _emphasized,_ a **bold,** a
 
 What about _emphasized text with some *strong* text within it?_
 
+*_And what about something right at the beginning of a line?_*  Hm, what about that?  This isn't a list item, is it?
+
 p)>. This should be a paragraph, floated right and padded on the right by 1 em.
 
 bq. This is a blockquote.
