@@ -6,8 +6,8 @@ p((<>[11](my_class). This is a Textile test.
 
 h1. This is a first-level header.
 
-(list1)#(listid1) This is the first entry in my ordered list[1].
-#(listid2) This is the second.
+(list1)#(#listid1) This is the first entry in my ordered list[1].
+#(listclass2) This is the second.
 
 # This should be the first entry in a new ordered list.
 # And this should be the second.
@@ -17,6 +17,8 @@ h1. This is a first-level header.
 bq. This is a blockquote.
 I am going to cut it into small lines
 With their own line breaks.
+
+clear.
 
 dl. term:definition
 block:not usually something like this,

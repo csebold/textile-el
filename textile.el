@@ -67,6 +67,8 @@ This is the primary processing loop in textile.el."
       (goto-char (point-min))
       (while
           (cond
+           ((looking-at "^clear[<>]?\\. *\n")
+            (textile-block-clear))
            ((looking-at textile-block-tag-regexp)
             (let* ((tag (match-string 1))
                    (attributes (textile-attributes (match-string 2)))
@@ -116,7 +118,9 @@ isn't within some kind of attribute block.  While processing,
 handle different kinds of attributes, including styles, classes,
 ids, and langs."
   (let ((my-plist nil)
-        (style "")
+        (style (if (boundp 'Textile-next-block-clear)
+                   Textile-next-block-clear
+                 ""))
         (class nil)
         (id nil)
         (lang nil)
@@ -124,6 +128,7 @@ ids, and langs."
         (right-pad 0)
         (attrib-string (or attrib-string
                            (buffer-substring (point) (point-max)))))
+    (makunbound 'Textile-next-block-clear)
     (with-temp-buffer
       (insert 
        (or attrib-string ""))
@@ -320,6 +325,24 @@ including attributes if necessary."
   (save-excursion
     (while (re-search-forward "\n<dt>" nil t)
       (replace-match "</dd>\\&"))))
+
+(defun textile-block-clear ()
+  "Pass a \"clear:left|right|both\" style to the next block.
+The only valid attributes to include in here are \"<\" or \">\" for clearing
+left or right floating, or nothing for the default of \"both\"."
+  (if (looking-at "clear\\([<>]?\\)\\. *")
+      (let ((attrib-string (match-string 1)))
+        (re-search-forward "clear\\([<>]?\\)\\. *\n+" nil t)
+        (replace-match "")
+        (setq Textile-next-block-clear
+              (cond
+               ((string= attrib-string "<")
+                "clear: left; ")
+               ((string= attrib-string ">")
+                "clear: right; ")
+               (t "clear: both; "))))
+    (textile-error "Clear block's attribute string must be <, >, or nothing.")
+    (textile-next-paragraph)))
 
 (defun textile-block-dl (extended style class id lang)
   "Handle the definition list block starting at (point).
