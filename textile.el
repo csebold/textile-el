@@ -332,30 +332,34 @@ like that).")
      ; break it up for inline tags
        )
     ; turn my-string into a list of strings
-      (setq Textile-escapes nil)
-      (setq Textile-tags nil)
-      (setq Textile-manual nil)
-      (setq my-list (mapcar 'textile-encode-escapes my-list))
-      (setq my-list (mapcar 'textile-encode-tags my-list))
-      (setq my-list (mapcar 'textile-encode-manual my-list))
+      (let ((old-values (list Textile-escapes Textile-tags Textile-manual)))
+        (setq Textile-escapes nil)
+        (setq Textile-tags nil)
+        (setq Textile-manual nil)
+        (setq my-list (mapcar 'textile-encode-escapes my-list))
+        (setq my-list (mapcar 'textile-encode-tags my-list))
+        (setq my-list (mapcar 'textile-encode-manual my-list))
       ; character-replacement processing
-      (setq my-list (mapcar 'textile-process-quotes my-list))
-      (setq my-list (mapcar 'textile-process-macros my-list))
+        (setq my-list (mapcar 'textile-process-quotes my-list))
+        (setq my-list (mapcar 'textile-process-macros my-list))
       ; tag-handling processing
-      (setq my-list (mapcar 'textile-decode-manual my-list))
-      (setq my-list (mapcar 'textile-process-inline my-list))
-      (setq my-list (mapcar 'textile-decode-tags my-list))
-      (setq my-list (mapcar 'textile-process-image my-list))
-      (setq my-list (mapcar 'textile-process-footnote my-list))
-      (setq my-list (mapcar 'textile-process-acronym my-list))
-      (setq my-list (mapcar 'textile-process-link my-list))
-      (setq my-list (mapcar 'textile-process-ampersand my-list))
+        (setq my-list (mapcar 'textile-decode-manual my-list))
+        (setq my-list (mapcar 'textile-process-inline my-list))
+        (setq my-list (mapcar 'textile-decode-tags my-list))
+        (setq my-list (mapcar 'textile-process-image my-list))
+        (setq my-list (mapcar 'textile-process-footnote my-list))
+        (setq my-list (mapcar 'textile-process-acronym my-list))
+        (setq my-list (mapcar 'textile-process-link my-list))
+        (setq my-list (mapcar 'textile-process-ampersand my-list))
     ; from this point on there will be no more converting ampersands
     ; to &amp;
-      (setq my-list (mapcar 'textile-process-newline my-list))
-      (if textile-utf-16-capable
-          (setq my-list (mapcar 'textile-process-non-ascii my-list)))
-      (setq my-list (mapcar 'textile-decode-escapes my-list))
+        (setq my-list (mapcar 'textile-process-newline my-list))
+        (if textile-utf-16-capable
+            (setq my-list (mapcar 'textile-process-non-ascii my-list)))
+        (setq my-list (mapcar 'textile-decode-escapes my-list))
+        (setq Textile-escapes (car old-values))
+        (setq Textile-tags (cadr old-values))
+        (setq Textile-manual (nth 2 old-values)))
       (append my-list (list my-plist)))))
 
 (defmacro textile-skip-tags (my-function my-string &rest body)
@@ -459,10 +463,7 @@ like that).")
 
 (defun textile-encode-manual (my-string)
   "Tokenize manual HTML tags."
-  (if (listp my-string)
-      (if (member 'textile-tag my-string)
-          my-string
-        (mapcar 'textile-encode-manual my-string))
+  (textile-skip-tags 'textile-encode-manual my-string
     (while (string-match
             "\\(\\(<code.*?>\\)\\(.*?\\)\\(</code>\\)\\|<a .*?>\\|</a>\\)"
             my-string)
@@ -481,10 +482,7 @@ like that).")
 
 (defun textile-decode-manual (my-string)
   "Find tokens and replace them with their original contents."
-  (if (listp my-string)
-      (if (member 'textile-tag my-string)
-          my-string
-        (mapcar 'textile-decode-manual my-string))
+  (textile-skip-tags 'textile-decode-manual my-string
     (while (string-match "emacs_textile_manual_token_\\([0-9]+\\)_x"
                          my-string)
       (setq my-string
@@ -573,21 +571,17 @@ like that).")
   (textile-skip-tags
    'textile-decode-escapes
    my-string
-   (while (string-match "emacs_textile_token_\\([0-9]+\\)_x" my-string)
-     (setq my-string
-           (replace-match
-            (nth (- (safe-length Textile-escapes)
-                    (string-to-number (match-string 1 my-string)))
-                 Textile-escapes) nil nil my-string)))
-   my-string))
+    (while (string-match "emacs_textile_token_\\([0-9]+\\)_x" my-string)
+      (setq my-string
+            (replace-match
+             (nth (- (safe-length Textile-escapes)
+                     (string-to-number (match-string 1 my-string)))
+                  Textile-escapes) nil nil my-string)))
+    my-string))
 
 (defun textile-process-inline (my-string)
   "Process all of the usual inline tags in a given string or list of strings."
-;  (textile-skip-tags 'textile-process-inline my-string
-  (if (listp my-string)
-      (if (member 'textile-tag my-string)
-          my-string
-        (mapcar 'textile-process-inline my-string))
+  (textile-skip-tags 'textile-process-inline my-string
       (if (string-match textile-inline-tag-regexp my-string)
           (if (not (equal (match-beginning 0) 0))
               (list (textile-remove-braces
@@ -629,15 +623,19 @@ like that).")
 
 (defun textile-remove-braces (my-string)
   "Remove inappropriate braces from the beginning or end of a string."
-  (save-match-data
-    (textile-skip-tags 'textile-remove-braces my-string
-      (if (string= (substring my-string 0 1) "]")
-          (setq my-string (substring my-string 1)))
-      (if (string= (substring my-string
-                              (- (length my-string) 1)
-                              (length my-string)) "[")
-          (setq my-string (substring my-string 0 (- (length my-string) 1))))
-      my-string)))
+  (if (string= my-string "")
+      my-string
+    (save-match-data
+      (textile-skip-tags
+       'textile-remove-braces
+       my-string
+       (if (string= (substring my-string 0 1) "]")
+           (setq my-string (substring my-string 1)))
+       (if (string= (substring my-string
+                               (- (length my-string) 1)
+                               (length my-string)) "[")
+           (setq my-string (substring my-string 0 (- (length my-string) 1))))
+       my-string))))
 
 (defun textile-process-footnote (my-string)
   "Process all footnotes in a given string or list of strings."
@@ -778,11 +776,7 @@ like that).")
 
 (defun textile-process-link (my-string)
   "Process all links in a given string or list of strings."
-  (if (listp my-string)
-      (if (member 'textile-tag my-string)
-          my-string
-        (mapcar 'textile-process-link my-string))
-;  (textile-skip-tags 'textile-process-link my-string
+  (textile-skip-tags 'textile-process-link my-string
     (if (or
          (string-match
           "\"\\([^\"]*?\\)\":\\([^ ]*?\\)\\(&#[0-9]+;\\)"
