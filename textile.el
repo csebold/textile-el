@@ -208,7 +208,11 @@ like that).")
         (textile-block-table my-string nil))
        ((string-match textile-block-tag-regexp my-string)
         (let* ((tag (match-string 1 my-string))
-               (attributes (textile-attributes " " (match-string 2 my-string)))
+               (attributes 
+                (if (string= tag "table")
+                    (textile-attributes " " (match-string 2 my-string)
+                                        'table-outer-tag)
+                  (textile-attributes " " (match-string 2 my-string))))
                (extended (string= (match-string 3 my-string) ".."))
                (my-function
                 (car (read-from-string (concat "textile-block-" tag)))))
@@ -321,7 +325,7 @@ like that).")
         (textile-block-alias))
        (t (textile-next-paragraph)))))
 
-(defun textile-attributes (&optional stop-regexp attrib-string)
+(defun textile-attributes (&optional stop-regexp attrib-string &rest context)
   "Return a plist of attributes from (point) or ATTRIB-STRING.
 If ATTRIB-STRING is non-nil, then make a new buffer with that;
 otherwise make a new buffer with the entirety of the buffer
@@ -331,8 +335,8 @@ handle different kinds of attributes, including styles, classes,
 ids, and langs.  Stop processing at the end of the buffer, string,
 or STOP-REGEXP."
    (let ((my-plist nil)
-        (style (if (boundp 'Textile-next-block-clear)
-                   Textile-next-block-clear
+        (style (if (memq 'next-block-clear context)
+                   (plist-get context 'next-block-clear)
                  ""))
         (class nil)
         (id nil)
@@ -350,7 +354,6 @@ or STOP-REGEXP."
                          " "))
         (attrib-string (or attrib-string
                            (buffer-substring (point) (point-max)))))
-     (makunbound 'Textile-next-block-clear)
      (with-temp-buffer
        (insert 
         (or attrib-string ""))
@@ -384,7 +387,7 @@ or STOP-REGEXP."
              (setq right-pad (1+ right-pad))
              (forward-char 1))
             ((equal this-char ?\>)
-             (if (boundp 'Textile-in-table)
+             (if (memq 'table context)
                  (setq align "right")
                (setq style (concat style "text-align: right; ")))
              (forward-char 1))
@@ -392,15 +395,15 @@ or STOP-REGEXP."
              (setq style (concat style "text-align: justify; "))
              (forward-char 2))
             ((equal this-char ?\<)
-             (if (boundp 'Textile-in-table)
+             (if (memq 'table context)
                  (setq align "left")
                (setq style (concat style "text-align: left; ")))
              (forward-char 1))
             ((equal this-char ?\=)
              (cond
-              ((boundp 'Textile-in-table)
+              ((memq 'table context)
                (setq align "center"))
-              ((boundp 'Textile-in-table-outer-tag)
+              ((memq 'table-outer-tag context)
                (setq style (concat style
                                    "margin-left: auto; margin-right: auto; ")))
               (t (setq style (concat style "text-align: center; "))))
@@ -420,8 +423,8 @@ or STOP-REGEXP."
             ((and
               (equal this-char ?\_)
               (or
-               (boundp 'Textile-in-table)
-               (boundp 'Textile-in-table-outer-tag)))
+               (memq 'table context)
+               (memq 'table-outer-tag context)))
              (setq textile-header t)
              (forward-char 1))
             (t
@@ -742,15 +745,16 @@ left or right floating, or nothing for the default of \"both\"."
       (let ((attrib-string (match-string 1 my-string)))
         (re-search-forward "clear\\([<>]?\\)\\. *" nil t)
         (setq my-string (replace-match "" t nil my-string))
-        (setq Textile-next-block-clear
-              (cond
-               ((string= attrib-string "<")
-                "clear: left; ")
-               ((string= attrib-string ">")
-                "clear: right; ")
-               (t "clear: both; "))))
-    (textile-error "Clear block's attribute string must be <, >, or nothing."))
-  "")
+        (list "(FIXME: this needs to be removed by clear code)"
+              (plist-put nil 'next-block-clear
+                            (cond
+                             ((string= attrib-string "<")
+                              "clear: left; ")
+                             ((string= attrib-string ">")
+                              "clear: right; ")
+                             (t "clear: both; ")))))
+    (textile-error "Clear block's attribute string must be <, >, or nothing.")
+    ""))
 
 (defun textile-block-alias ()
   "Process an alias for future linking."
@@ -943,22 +947,23 @@ HTML-formatted this table."
 
 (defun textile-table-row-process (this-string)
   (let* ((my-cell-list (split-string this-string " *| *"))
-         (row-attributes (textile-attributes " " (car my-cell-list)))
+         (row-attributes (textile-attributes " " (car my-cell-list) 'table))
          (my-cell-list (cdr my-cell-list)))
-    (setq Textile-in-table t) ; where do I unset it though?
     (setq row-attributes (plist-put row-attributes 'textile-tag "tr"))
-    (append (mapcar 'textile-table-cell-process my-cell-list)
-          (list row-attributes))))
+    (if (plist-get row-attributes 'textile-header)
+        (setq Textile-in-header-row t))
+    (prog1
+        (append (mapcar 'textile-table-cell-process my-cell-list)
+                (list row-attributes))
+      (makunbound 'Textile-in-header-row))))
 
 (defun textile-table-cell-process (this-cell)
   (let* ((cell-attributes (textile-attributes "[.] +"
-                                              this-cell))
+                                              this-cell 'table))
          (header
-;          (or (plist-get row-attributes
-;                         'textile-header)
+          (or (boundp 'Textile-in-header-row) ; what an ugly hack
               (plist-get cell-attributes
-                         'textile-header)))
-;           )
+                         'textile-header))))
     (if (string-match
          (concat "^" (regexp-quote
                       (plist-get cell-attributes
