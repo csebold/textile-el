@@ -131,7 +131,7 @@
 ;;          (forward-char 1)) ; filters - FIXME
            ((equal this-char ?\ )
             (setq my-plist (plist-put my-plist 'attrib-string-length (point)))
-            (end-of-buffer))
+            (goto-char (point-max)))
            (t (forward-char 1))))))
     (if (> left-pad 0)
         (setq style (concat style "padding-left: "
@@ -195,7 +195,8 @@
         (replace-match "</li>\n")
         (let ((attributes (textile-attributes)))
           (delete-region (point)
-                         (+ (point) (plist-get attributes 'attrib-string-length)))
+                         (+ (point)
+                            (plist-get attributes 'attrib-string-length)))
           (textile-block-start-tag-insert "li"
                                         (plist-get attributes 'style)
                                         (plist-get attributes 'class)
