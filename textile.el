@@ -21,8 +21,8 @@
 ; well Emacs will stand up to the task.  I don't mind requiring 'cl if
 ; I have to but I really didn't want to have to use EIEIO for this.
 
-(defvar textile-block-tag-regexp-start "\\(")
-(defvar textile-block-any-tag-regexp "[^ .]+")
+(defvar textile-block-tag-regexp-start "^\\(")
+(defvar textile-block-any-tag-regexp "[a-z0-9]+")
 (defvar textile-block-tag-regexp-end "\\)\\(.*?\\)\\(\\.\\{1,2\\}\\) ")
 ; FIXME - something is keeping (match-string 2) from matching the
 ; attributes
@@ -42,7 +42,7 @@
 ; code for processing each paragraph of an extended block
 ;;     (while (and
 ;;             (not (looking-at textile-block-tag-regexp))
-;;             (not (equal (point) (point-max))))
+;;             (not (eobp)))
 ;;       (textile-next-paragraph)
 
 (defun textile-code-to-blocks (start end)
@@ -82,26 +82,35 @@
             ; FIXME - filters (yikes), padding, alignment
             (let ((this-char (char-after)))
               (cond
-               ((equal this-char ?\{)
-                (if (re-search-forward "\\(.*?\\)\\\\}" nil t)
-                    (setq style (match-string 1)))
-                (forward-char 1)) ; style rule
-               ((equal this-char ?\[)
-                (forward-char 1)) ; lang rule
-               ((equal this-char ?\()
-                (forward-char 1)) ; class/id rule or padding
-               ((equal this-char ?\))
-                (forward-char 1)) ; right padding
-               ((equal this-char ?\>)
-                (forward-char 1)) ; right-justify
-               ((equal this-char ?\<)
-                (forward-char 1)) ; left-justify or full
-               ((equal this-char ?\=)
-                (forward-char 1)) ; centered
-               ((equal this-char ?\|)
-                (forward-char 1)) ; filters - FIXME
+               ((looking-at "{\\(.*?\\)}")
+                (setq style (match-string 1))
+                (re-search-forward "}" nil t))
+               ((looking-at "\\[\\(.*?\\)\\]")
+                (setq lang (match-string 1))
+                (re-search-forward "\\]" nil t))
+               ((looking-at "(\\([^)]+\\))")
+                (let ((this-attrib (split-string (match-string 1) "#")))
+                  (setq class (car this-attrib))
+                  (setq id (cadr this-attrib)))
+                (re-search-forward ")" nil t))
+;;                ((equal this-char ?\))
+;;                 (forward-char 1)) ; right padding
+;;                ((equal this-char ?\>)
+;;                 (forward-char 1)) ; right-justify
+;;                ((equal this-char ?\<)
+;;                 (forward-char 1)) ; left-justify or full
+;;                ((equal this-char ?\=)
+;;                 (forward-char 1)) ; centered
+;;                ((equal this-char ?\|)
+;;                 (forward-char 1)) ; filters - FIXME
                (t (forward-char 1))))
             (not (eobp)))))
+    (if (string= class "")
+        (setq class nil))
+    (if (string= id "")
+        (setq id nil))
+    (message "Style=%s, class=%s, id=%s, lang=%s"
+             style class id lang)
     (put 'my-plist 'style style)
     (put 'my-plist 'class class)
     (put 'my-plist 'id id)
