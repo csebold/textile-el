@@ -46,10 +46,16 @@
                      (lang (plist-get attributes 'lang))
                      (my-function
                       (car (read-from-string (concat "textile-block-" tag)))))
-                (if (fboundp my-function)
-                    (progn
-                      (funcall my-function extended style class id lang))
-                  (textile-block-p nil nil nil nil nil))))
+                (cond
+                 ((fboundp my-function)
+                  (funcall my-function extended style class id lang))
+                 ((string-match "^h[1-6]$" tag)
+                  (textile-block-header
+                   (substring tag 1 2) extended style class id lang))
+                 ((string-match "^fn[0-9]+$" tag)
+                  (textile-block-fn
+                   (substring tag 2) extended style "footnote" tag lang))
+                 (t (textile-block-p nil nil nil nil nil)))))
           (textile-block-p nil nil nil nil nil))))
   (widen))
 
@@ -123,6 +129,26 @@
     (textile-end-of-paragraph)
     (textile-block-end-tag-insert "p")
     (textile-next-paragraph)))
+
+(defun textile-block-fn (num extended style class id lang)
+  (if extended
+      (textile-error "Extended fn? block doesn't make sense.")
+    (textile-delete-tag id)
+    (textile-block-start-tag-insert "p" style class id lang)
+    (insert "<sup>" num "</sup> ")
+    (textile-end-of-paragraph)
+    (textile-block-end-tag-insert "p")
+    (textile-next-paragraph)))
+
+(defun textile-block-header (hlevel extended style class id lang)
+  (if extended
+      (textile-error "Extended <h?> block doesn't make sense.")
+    (let ((my-tag (concat "h" hlevel)))
+      (textile-delete-tag my-tag)
+      (textile-block-start-tag-insert my-tag style class id lang)
+      (textile-end-of-paragraph)
+      (textile-block-end-tag-insert my-tag)
+      (textile-next-paragraph))))
 
 (defun textile-block-bq (extended style class id lang)
   (textile-delete-tag "bq")
