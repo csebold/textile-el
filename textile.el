@@ -130,6 +130,7 @@ like that).")
 
 (defun textile-string-to-list (my-string)
   "Process textile-encoded MY-STRING and return a textile list tree."
+  (setq textile-alias-list textile-alias-list-defaults)
   (let ((blocks (textile-blockcode-blocks
                  (textile-escape-blocks (split-string my-string "\n\n")))))
     (delete "" (mapcar 'textile-block-to-list blocks))))
@@ -201,7 +202,7 @@ like that).")
       my-string
     (let ((my-plist (plist-put nil 'textile-explicit t)))
       (cond
-                                        ; test for block tags
+       ; test for block tags
        ((string-match "^clear[<>]?\\. *$" my-string)
         (setq my-string (textile-block-clear my-string)))
        ((and
@@ -246,20 +247,75 @@ like that).")
 
 (defun textile-inline-to-list (my-string)
   "Process textile-encoded MY-STRING and return a textile inline tree."
-  (let ((my-plist nil))
+  (let ((my-plist (plist-put nil 'textile-tag nil))
+        (my-list (list my-string)))
     (cond
      ; break it up for inline tags
      )
+    ; turn my-string into a list of strings
+    (setq my-list (mapcar 'textile-process-link my-list))
     ; from this point on there will be no more converting ampersands
     ; to &amp;
+    (setq my-list (mapcar 'textile-process-non-ascii my-list))
+    (append my-list (list my-plist))))
+
+(defun textile-process-link (my-string)
+  "Process all links in a given string or list of strings."
+  (if (listp my-string)
+      (if (member 'textile-tag my-string)
+          my-string
+        (mapcar 'textile-process-link my-string))
+    (if (string-match
+         "\"\\([^\"]*?\\)\":\\([^ ]*?\\)\\([,.;:]?\\(?: \\|$\\)\\)"
+         my-string)
+        (if (not (equal (match-beginning 0) 0))
+            (list (substring my-string 0 (match-beginning 0))
+                  (textile-process-link (substring my-string
+                                                   (match-beginning 0)))
+                  (plist-put nil 'textile-tag nil))
+          (if (not (equal (match-end 0) (length my-string)))
+              (list (save-match-data
+                      (textile-process-link (substring my-string
+                                                       (match-beginning 0)
+                                                       (match-end 3))))
+                    (textile-process-link (substring my-string
+                                                     (match-end 3)))
+                    (plist-put nil 'textile-tag nil))
+            (let* ((text (match-string 1 my-string))
+                   (url (match-string 2 my-string))
+                   (delimiter (match-string 3 my-string))
+                   (title "")
+                   (alias-info (textile-alias-to-url url textile-alias-list)))
+              (if alias-info
+                  (progn
+                    (setq title (car alias-info))
+                    (setq url (cadr alias-info)))
+                (if (string-match "\\(.*\\) +(\\(.*\\))" text)
+                    (progn
+                      (setq title (match-string 2 text))
+                      (setq text (match-string 1 text)))))
+              (if (string= title "")
+                  (setq title nil))
+              (list (list text
+                          (plist-put
+                           (plist-put
+                            (plist-put nil 'textile-tag "a")
+                            'href url)
+                           'title title)) delimiter
+                           (plist-put nil 'textile-tag nil)))))
+      my-string)))
+
+(defun textile-process-non-ascii (my-string)
+  (if (listp my-string)
+      (if (member 'textile-tag my-string)
+          my-string
+        (mapcar 'textile-process-non-ascii my-string))
     (while (string-match "\\([^\000-\177]+\\)" my-string)
       (let* ((non-ascii-string (match-string 1 my-string))
              (replacement (save-match-data
                             (textile-non-ascii-to-unicode non-ascii-string))))
         (setq my-string (replace-match replacement nil nil my-string))))
-    (if my-plist
-        (list my-string my-plist)
-      my-string)))
+    my-string))
 
 (defun textile-list-to-blocks (my-list)
   "Convert list of textile trees to XHTML string."
@@ -306,7 +362,6 @@ like that).")
                   (setq new-list (cdr new-list))))
           (push this-item my-list))))
     (reverse my-list)))
-;    (reverse new-list)))
 
 (defun textile-compile-string (my-list)
   "Convert textile tree to XHTML string."
