@@ -1376,7 +1376,7 @@ HTML-formatted this table."
      (mapcar 'textile-table-row-process my-row-list) (list attributes))))
 
 (defun textile-table-row-process (this-string)
-  (let* ((row-attributes (textile-attributes " " this-string 'table))
+  (let* ((row-attributes (textile-attributes ". " this-string 'table))
          (this-string (substring this-string
                                  (length
                                   (plist-get row-attributes
