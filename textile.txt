@@ -26,7 +26,21 @@ which starts with no list item tag
 
 h2. Textile smart quotes tests:
 
-Blocks that "end in quotes don't seem to work right."
+""This is a link.":http://www.livingtorah.org"
+
+This is a ".emacs" file.
+
+Blocks that "end in quotes seem to work right."
+
+"'He said,' she said, 'that quotes within quotes are fairly common.'"
+
+"'"And what," he said,' she said, 'about when he said, "about what she said?"'"
+
+She paused, "...I don't think I understand."
+
+What if we have quotes darting in and out of inline tags?  _Custer_'s last stand?  What about _Custer's_ last stand?
+
+"_Groovy._"
 
 Don't look now, but here come the '80s.
 
