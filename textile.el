@@ -135,11 +135,13 @@ like that).")
 
 (defun textile-block-to-list (my-string)
   "Process textile-encoded MY-STRING and return a textile block tree."
-  (let ((my-plist (plist-put nil 'explicit t)))
+  (let ((my-plist (plist-put nil 'textile-explicit t)))
     (cond
      ; test for block tags
      ((string-match "^clear[<>]?\\. *$" my-string)
       (setq my-string (textile-block-clear my-string)))
+     ((string-match "^.*?|.*| *$" my-string)
+      (textile-block-table my-string nil))
      ((string-match textile-block-tag-regexp my-string)
       (let* ((tag (match-string 1 my-string))
              (attributes (textile-attributes " " (match-string 2 my-string)))
@@ -162,14 +164,11 @@ like that).")
           (textile-block-footnote my-string attributes))
          (t
           (setq my-plist (plist-put my-plist 'textile-tag "p"))
-          (setq my-plist (plist-put my-plist 'explicit nil))
+          (setq my-plist (plist-put my-plist 'textile-explicit nil))
           (list (textile-inline-to-list my-string) my-plist)))))
-     ((string-match "^|" my-string)
-      (setq my-plist (plist-put my-plist 'textile-tag "table"))
-      (textile-block-table my-string attributes))
      (t
       (setq my-plist (plist-put my-plist 'textile-tag "p"))
-      (setq my-plist (plist-put my-plist 'explicit nil))
+      (setq my-plist (plist-put my-plist 'textile-explicit nil))
       (list (textile-inline-to-list my-string) my-plist)))))
 
 (defun textile-inline-to-list (my-string)
