@@ -398,6 +398,24 @@ supposed to be preformatted."
       ; insert more inline tests here
       )))
 
+(defun textile-non-ascii-to-unicode (string)
+  "Convert STRING to Unicode entities."
+  ; FIXME - this isn't working; not sure why.  In a string of non-ASCII
+  ;         characters, the ones that aren't at the end of a word usually
+  ;         work.
+  (let ((unicode-string (encode-coding-string string 'utf-16))
+        (unicode-values nil)
+        (output ""))
+    (dolist (i (nthcdr 3 (split-string unicode-string "")))
+      (setq unicode-values (cons (string-to-char i) unicode-values)))
+    (while (cdr unicode-values)
+      (setq output (concat output "&#" (number-to-string
+                                        (+ (* (car unicode-values) 256)
+                                           (cadr unicode-values)))
+                           ";"))
+      (setq unicode-values (cddr unicode-values)))
+    output))
+
 (defun textile-inline-generic ()
   "Handle most Textile inline processing of tags.
 Practically all block formatting (except preformatted blocks)
@@ -407,6 +425,12 @@ footnotes, etc."
     (while (re-search-forward "\\[\\([0-9]+\\)\\]" nil t)
       (replace-match
        "<sup class=\"footnote\"><a href=\"#fn\\1\">\\1</a></sup>")))
+  (save-excursion
+    (while (re-search-forward "\\([^\000-\177]+\\)" nil t)
+      (let* ((non-ascii-string (match-string 1))
+             (replacement (save-match-data
+                            (textile-non-ascii-to-unicode non-ascii-string))))
+        (replace-match replacement))))
   (save-excursion
     (while (re-search-forward
             "\"\\(.*?\\)\":\\([^ ]*?\\)\\([,.;:]?\\(?: \\|$\\)\\)"
