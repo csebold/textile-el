@@ -186,7 +186,7 @@ like that).")
                                       (car my-list)))
                         (progn
                           (setq hit-end t)
-                          (push (list (list code-block
+                          (push (list (list (textile-process-code code-block)
                                             (list 'textile-tag "code"))
                                       (plist-put my-attr 'textile-tag
                                                  "pre"))
@@ -263,15 +263,67 @@ like that).")
       (setq my-list (mapcar 'textile-process-acronym my-list))
       (setq my-list (mapcar 'textile-process-inline my-list))
       (setq my-list (mapcar 'textile-process-link my-list))
+      (setq my-list (mapcar 'textile-process-ampersand my-list))
     ; from this point on there will be no more converting ampersands
     ; to &amp;
+      (setq my-list (mapcar 'textile-process-newline my-list))
       (setq my-list (mapcar 'textile-process-non-ascii my-list))
       (append my-list (list my-plist)))))
 
+(defun textile-process-newline (my-string)
+  "Convert newlines to <br /> tags if so desired."
+  (if textile-br-all-newlines
+      (if (listp my-string)
+          (if (member 'textile-tag my-string)
+              my-string
+            (mapcar 'textile-process-newline my-string))
+        (with-temp-buffer
+          (insert my-string)
+          (goto-char (point-min))
+          (while (re-search-forward "\n" nil t)
+            (replace-match "<br />\n"))
+          (buffer-string)))
+    my-string))
+
+(defun textile-process-ampersand (my-string)
+  "Convert ampersands to &amp; as necessary."
+  (if (listp my-string)
+      (if (member 'textile-tag my-string)
+          my-string
+        (mapcar 'textile-process-ampersand my-string))
+    (with-temp-buffer
+      (insert my-string)
+      (goto-char (point-min))
+      (save-excursion
+        (while (re-search-forward "&" nil t)
+          (if (looking-at "\\w+;")
+              (re-search-forward "\\w+;" nil t)
+            (replace-match "&amp;"))))
+      (buffer-string))))
+
 (defun textile-process-code (my-string)
-  "Process necessary things in <code> fragments, like entities."
-  ; need to do this: FIXME
-  my-string)
+  "Process necessary things in <code> fragments, like the five XML entities."
+  ; ugly hack but easier than the alternative right now
+  (if (listp my-string)
+      (if (member 'textile-tag my-string)
+          my-string
+        (mapcar 'textile-process-code my-string))
+    (with-temp-buffer
+      (insert (textile-process-ampersand my-string))
+      (goto-char (point-min))
+      (save-excursion
+        (while (re-search-forward "<" nil t)
+          (replace-match "&lt;")))
+      (save-excursion
+        (while (re-search-forward ">" nil t)
+          (replace-match "&gt;")))
+      (save-excursion
+        (while (re-search-forward "\"" nil t)
+          (replace-match "&quot;")))
+      (save-excursion
+        (while (re-search-forward "'" nil t)
+          (replace-match "&apos;")))
+      (buffer-string))))
 
 (defun textile-process-acronym (my-string)
   "Process all acronyms in a given string or list of strings."
@@ -430,7 +482,7 @@ like that).")
                           (plist-put
                            (plist-put
                             (plist-put nil 'textile-tag "a")
-                            'href url)
+                            'href (textile-process-ampersand url))
                            'title title)) delimiter
                            (plist-put nil 'textile-tag nil)))))
       my-string)))
@@ -788,12 +840,12 @@ HTML-formatted this definition list."
             (setq my-new-list (nconc my-new-list (list this-line)))
           (setcar (nthcdr (- (safe-length my-new-list) 1) my-new-list)
                   (concat (nth (- (safe-length my-new-list) 1) my-new-list)
-                          "<br />"
+                          "\n"
                           this-line)))))
     (setq my-list nil)
     (dolist (this-string my-new-list)
       (setq my-list
-            (if (string-match "^\\(.*?\\):\\(.*\\)$" this-string)
+            (if (string-match "^\\(.*?\\):\\([^\000]*\\)$" this-string)
                 (append
                  (list (list (textile-inline-to-list
                               (match-string 2 this-string))
