@@ -68,7 +68,7 @@
 ; reports to textile-bug@livingtorah.org, preferably along with sample
 ; text and some description of what you expected to see.
 
-(defvar textile-version "Textile.el v0.97"
+(defvar textile-version "Textile.el v0.98"
   "Version number for textile.el.")
 
 (defvar textile-block-tag-regexp-start "^\\("
@@ -175,18 +175,26 @@ like that).")
 (defvar textile-output-to-new-buffer t
   "Should Textile output go to a new buffer?")
 
+(defvar textile-xhtml-version-default "XHTML 1.0 Transitional"
+  "What is the default version of XHTML that Textile will produce?")
+
 (defvar textile-xhtml-docstrings
   '("XHTML 1.0 Strict" "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">"
     "XHTML 1.0 Transitional" "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">"
-    "XHTML 1.0 Frameset" "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Frameset//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-frameset.dtd\">")
+    "XHTML 1.0 Frameset" "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Frameset//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-frameset.dtd\">"
+    "XHTML 1.1" "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1//EN\" \"xhtml11-flat.dtd\">")
   "Standard HTML doctypes so that a Textile document can be self-contained.")
 
-(defun textile-header (html-version title &optional charset &rest headers)
+(defun textile-header (title &optional html-version charset &rest headers)
   "Insert HTML header so that Textile documents can be self-contained."
   (let ((my-docstrings textile-xhtml-docstrings)
         (output ""))
-    (unless (member html-version textile-xhtml-docstrings)
-      (setq html-version "XHTML 1.0 Transitional"))
+    (unless html-version
+      (setq html-version textile-xhtml-version-default))
+    (if (member html-version textile-xhtml-docstrings)
+        (setq textile-xhtml-version html-version)
+      (setq textile-xhtml-version textile-xhtml-version-default)
+      (setq html-version textile-xhtml-version-default))
     (while my-docstrings
       (if (string= html-version (car my-docstrings))
           (setq output (cadr my-docstrings)))
@@ -411,38 +419,28 @@ If ARG, insert string at point."
      ; break it up for inline tags
        )
     ; turn my-string into a list of strings
-      (dolist (var '(Textile-escapes Textile-tags Textile-manual))
-        (if (not (boundp var))
-            (set var nil)))
-      (let ((old-values (list Textile-escapes Textile-tags Textile-manual)))
-        (setq Textile-escapes nil)
-        (setq Textile-tags nil)
-        (setq Textile-manual nil)
-        (setq my-list (mapcar 'textile-encode-escapes my-list))
-        (setq my-list (mapcar 'textile-encode-tags my-list))
-        (setq my-list (mapcar 'textile-encode-manual my-list))
+      (setq my-list (mapcar 'textile-encode-escapes my-list))
+      (setq my-list (mapcar 'textile-encode-tags my-list))
+      (setq my-list (mapcar 'textile-encode-manual my-list))
       ; character-replacement processing
-        (setq my-list (mapcar 'textile-process-quotes my-list))
-        (setq my-list (mapcar 'textile-process-macros my-list))
+      (setq my-list (mapcar 'textile-process-quotes my-list))
+      (setq my-list (mapcar 'textile-process-macros my-list))
       ; tag-handling processing
-        (setq my-list (mapcar 'textile-decode-manual my-list))
-        (setq my-list (mapcar 'textile-process-inline my-list))
-        (setq my-list (mapcar 'textile-decode-tags my-list))
-        (setq my-list (mapcar 'textile-process-image my-list))
-        (setq my-list (mapcar 'textile-process-footnote my-list))
-        (setq my-list (mapcar 'textile-process-link my-list))
-        (setq my-list (mapcar 'textile-process-acronym my-list))
-        (setq my-list (mapcar 'textile-process-auto-link my-list))
-        (setq my-list (mapcar 'textile-process-ampersand my-list))
+      (setq my-list (mapcar 'textile-decode-manual my-list))
+      (setq my-list (mapcar 'textile-process-inline my-list))
+      (setq my-list (mapcar 'textile-decode-tags my-list))
+      (setq my-list (mapcar 'textile-process-image my-list))
+      (setq my-list (mapcar 'textile-process-footnote my-list))
+      (setq my-list (mapcar 'textile-process-link my-list))
+      (setq my-list (mapcar 'textile-process-acronym my-list))
+      (setq my-list (mapcar 'textile-process-auto-link my-list))
+      (setq my-list (mapcar 'textile-process-ampersand my-list))
     ; from this point on there will be no more converting ampersands
     ; to &amp;
-        (setq my-list (mapcar 'textile-process-newline my-list))
-        (if textile-utf-16-capable
-            (setq my-list (mapcar 'textile-process-non-ascii my-list)))
-        (setq my-list (mapcar 'textile-decode-escapes my-list))
-        (setq Textile-escapes (car old-values))
-        (setq Textile-tags (cadr old-values))
-        (setq Textile-manual (nth 2 old-values)))
+      (setq my-list (mapcar 'textile-process-newline my-list))
+      (if textile-utf-16-capable
+          (setq my-list (mapcar 'textile-process-non-ascii my-list)))
+      (setq my-list (mapcar 'textile-decode-escapes my-list))
       (append my-list (list my-plist)))))
 
 (defmacro textile-skip-tags (my-function my-string &rest body)
@@ -453,6 +451,9 @@ If ARG, insert string at point."
               my-string
               (list 'mapcar my-function my-string))
         (cons 'progn body)))
+
+; FIXME - add textile-save-token-data macro to replace all the
+; Textile-escapes etc. saving
 
 ; add edebug instrumentation for lisp macro(s)
 (add-hook 'edebug-setup-hook
@@ -1228,7 +1229,14 @@ or STOP-REGEXP."
                                     textile-header textile-well-formed))
        (when (string= (eval this-variable) "")
          (set this-variable nil))
-       (setq my-plist (plist-put my-plist this-variable (eval this-variable))))
+       (setq my-plist (plist-put my-plist
+                                 (if (and
+                                      (eq this-variable 'lang)
+                                      (string=
+                                       textile-xhtml-version "XHTML 1.1"))
+                                     'xml:lang
+                                   this-variable)
+                                 (eval this-variable))))
      my-plist))
 
 (defun textile-non-ascii-to-unicode (string)
@@ -1329,7 +1337,9 @@ HTML-formatted this definition list."
   (if (string-match (textile-this-block-tag-regexp "dl") my-string)
       (setq my-string (replace-match "" nil nil my-string)))
   (setq attributes (plist-put attributes 'textile-tag "dl"))
-  (let ((my-list (textile-split-string my-string "\n"))
+  (let ((my-list (textile-split-string (textile-encode-tags
+                                        (textile-encode-escapes my-string))
+                                       "\n"))
         (my-new-list nil))
     (dotimes (i (safe-length my-list))
       (let ((this-line (nth i my-list)))
@@ -1353,7 +1363,9 @@ HTML-formatted this definition list."
                               (match-string 1 this-string))
                              (list 'textile-tag "dt")) "\n") my-list)
               (append (textile-inline-to-list this-string) my-list))))
-    (append (reverse my-list) (list attributes))))
+    (append (reverse (textile-decode-tags
+                      (textile-decode-escapes my-list)))
+            (list attributes))))
 
 (defun textile-block-list (my-string)
   "Handled the list block MY-STRING with attributes L-ATTRIBUTES."
@@ -1656,6 +1668,10 @@ continue."
   "Process MY-STRING, return XHTML-encoded string."
   (let ((current-case-fold-search case-fold-search))
     (setq case-fold-search nil)
+    (setq textile-xhtml-version textile-xhtml-version-default)
+    (setq Textile-escapes nil)
+    (setq Textile-tags nil)
+    (setq Textile-manual nil)
     (prog1
         (textile-list-to-blocks (textile-string-to-list my-string))
       (setq case-fold-search current-case-fold-search))))
