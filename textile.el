@@ -21,7 +21,8 @@
           tag "+"
           textile-block-tag-regexp-end))
 
-(defvar textile-list-tag-regexp "^\\([*#]\\)\\(.*?\\) ")
+(defvar textile-list-tag-regexp
+  "^\\(([^ ]+?)\\|\\)\\([*#]\\)\\(([^ ]+?)\\|\\) ")
 
 (defvar textile-error-break nil)
 
@@ -58,33 +59,40 @@
              (substring tag 2) extended style "footnote" tag lang))
            (t (textile-block-p nil nil nil nil nil)))))
        ((looking-at textile-list-tag-regexp)
-        (let* ((tag (match-string 1))
-               (attributes (textile-attributes (match-string 2)))
-               (style (plist-get attributes 'style))
-               (class (plist-get attributes 'class))
-               (id (plist-get attributes 'id))
-               (lang (plist-get attributes 'lang)))
+        (let* ((tag (match-string 2))
+               (l-attributes (textile-attributes (match-string 1)))
+               (li-attributes (textile-attributes (match-string 3)))
+               (style (plist-get l-attributes 'style))
+               (class (plist-get l-attributes 'class))
+               (id (plist-get l-attributes 'id))
+               (lang (plist-get l-attributes 'lang)))
+          (message "list item attribute is: %s" (match-string 3))
           (cond
            ((string= tag "#")
-            (textile-block-ol style class id lang))
+            (textile-block-ol style class id lang li-attributes))
            ((string= tag "*")
-            (textile-block-ul style class id lang))
+            (textile-block-ul style class id lang li-attributes))
            (t
             (textile-error "What kind of list is this?")
             (textile-block-p nil nil nil nil nil)))))
+       ((looking-at "^== *\n")
+        (textile-block-escape))
        (t (textile-block-p nil nil nil nil nil))))
   (widen))
 
-(defun textile-attributes (attrib-string)
+(defun textile-attributes (&optional attrib-string)
   (let ((my-plist nil)
         (style "")
         (class nil)
         (id nil)
         (lang nil)
         (left-pad 0)
-        (right-pad 0))
+        (right-pad 0)
+        (attrib-string (or attrib-string
+                           (buffer-substring (point) (point-max)))))
     (with-temp-buffer
-      (insert attrib-string)
+      (insert 
+       (or attrib-string ""))
       (beginning-of-buffer)
       (while (not (eobp))
         (let ((this-char (char-after)))
@@ -118,8 +126,11 @@
            ((equal this-char ?\=)
             (setq style (concat style "text-align: center; "))
             (forward-char 1))
-;;                ((equal this-char ?\|)
-;;                 (forward-char 1)) ; filters - FIXME
+;;         ((equal this-char ?\|)
+;;          (forward-char 1)) ; filters - FIXME
+           ((equal this-char ?\ )
+            (setq my-plist (plist-put my-plist 'attrib-string-length (point)))
+            (end-of-buffer))
            (t (forward-char 1))))))
     (if (> left-pad 0)
         (setq style (concat style "padding-left: "
@@ -178,25 +189,71 @@
         (while (re-search-forward "\n[^*#]" nil t)
           (replace-match "<br \>\\&"))))
   (save-excursion
-    (while (re-search-forward "\n[*#] +" nil t)
-      (replace-match "<\li>\n<li>"))))
+    (while (re-search-forward "\n\\([*#]\\)" nil t)
+      (let ((tag (match-string 1)))
+        (replace-match "</li>\n")
+        (let ((attributes (textile-attributes)))
+          (delete-region (point)
+                         (+ (point) (plist-get attributes 'attrib-string-length)))
+          (textile-block-start-tag-insert "li"
+                                        (plist-get attributes 'style)
+                                        (plist-get attributes 'class)
+                                        (plist-get attributes 'id)
+                                        (plist-get attributes 'lang)))))))
 
-(defun textile-block-ol (style class id lang)
+(defun textile-block-ol (style class id lang li-attributes)
   (delete-region (point)
-                 (re-search-forward "# +" nil t))
-  (insert "<ol>\n<li>")
+                 (re-search-forward "# *" nil t))
+  (textile-block-start-tag-insert "ol" style class id lang)
+  (insert "\n")
+  (let ((attributes (textile-attributes)))
+    (delete-region (point)
+                   (+ (point) (plist-get attributes 'attrib-string-length)))
+    (textile-block-start-tag-insert "li"
+                                    (plist-get attributes 'style)
+                                    (plist-get attributes 'class)
+                                    (plist-get attributes 'id)
+                                    (plist-get attributes 'lang)))
   (textile-process-list-block)
   (textile-end-of-paragraph)
   (insert "</li>\n</ol>")
   (textile-next-paragraph))
 
-(defun textile-block-ul (style class id lang)
+(defun textile-block-ul (style class id lang li-attributes)
   (delete-region (point)
-                 (re-search-forward "\\* +" nil t))
-  (insert "<ul>\n<li>")
+                 (re-search-forward "\\* *" nil t))
+  (textile-block-start-tag-insert "ul" style class id lang)
+  (insert "\n")
+  (textile-block-start-tag-insert "li"
+                                  (plist-get li-attributes 'style)
+                                  (plist-get li-attributes 'class)
+                                  (plist-get li-attributes 'id)
+                                  (plist-get li-attributes 'lang))
   (textile-process-list-block)
   (textile-end-of-paragraph)
   (insert "</li>\n</ul>")
+  (textile-next-paragraph))
+
+(defun textile-block-escape ()
+  (delete-region
+   (save-excursion
+     (beginning-of-line)
+     (point))
+   (save-excursion
+     (end-of-line)
+     (if (looking-at "\n")
+         (forward-char 1))
+     (point)))
+  (re-search-forward "^== *$" nil t)
+  (delete-region
+   (save-excursion
+     (beginning-of-line)
+     (point))
+   (save-excursion
+     (end-of-line)
+     (if (looking-at "\n")
+         (forward-char 1))
+     (point)))
   (textile-next-paragraph))
 
 (defun textile-block-p (extended style class id lang)
