@@ -7,7 +7,6 @@
 @comment %**end of header
 @copying
 This manual is for textile.el
-(version @value{VERSION}, @value{UPDATED}),
 which is an implementation of Textile and MT-Textile in Emacs Lisp.
 
 @quotation
@@ -40,7 +39,6 @@ Copyright @copyright{} 2004 Charles Sebold @email{csebold@@livingtorah.org}
 
 @titlepage
 @title Textile.el
-@subtitle for version @value{VERSION}, @value{UPDATED}
 @author Charles Sebold (@email{csebold@@livingtorah.org})
 @page
 @vskip 0pt plus 1filll
@@ -63,6 +61,20 @@ This manual is not complete yet.
 * Textile Formatting::
 * Index::
 @end menu
+
+@node Using textile.el
+@chapter Using textile.el
+
+@cindex using
+
+This will describe how to use textile.el in Emacs.
+
+@node Textile Formatting
+@chapter Textile Formatting
+
+@cindex formatting, markup
+
+This will describe how to use Textile markup in your document.
 
 @node Index
 @unnumbered Index
