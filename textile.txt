@@ -18,10 +18,6 @@ OK, "here is a link":http://www.livingtorah.org to my website.
 
 "Here is a link":http://www.livingtorah.org, and "here's another":http://www.livingtorah.org.
 
-[ltm (Living Torah Ministries)]http://www.livingtorah.org
-
-[ltj]http://www.livingtorah.org/journal/
-
 Let's try aliases: "here":ltm is the ministry link, and "here":ltj is the journal.
 
 And then "a normal link (Sun)":http://www.sun.com to Sun's website.
@@ -98,6 +94,9 @@ fn1. This is my first footnote.
 fn42. This is my forty-second.
 
 p=. Written by Charles Sebold
+
+[ltm (Living Torah Ministries)]http://www.livingtorah.org
+[ltj]http://www.livingtorah.org/journal/
 
 ==
 <!--
