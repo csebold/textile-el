@@ -21,6 +21,7 @@
           tag "+"
           textile-block-tag-regexp-end))
 
+; I probably don't need to test for list item attributes here anymore
 (defvar textile-list-tag-regexp
   "^\\(([^ ]+?)\\|\\)\\([*#]\\)\\(([^ ]+?)\\|\\) ")
 
