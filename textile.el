@@ -211,6 +211,7 @@ or STOP-REGEXP."
          (let ((this-char (char-after)))
            (cond
            ((looking-at stop-regexp)
+            (re-search-forward stop-regexp nil t)
             (setq my-plist (plist-put my-plist
                                       'textile-attrib-string-length (point)))
             (goto-char (point-max)))
@@ -220,7 +221,7 @@ or STOP-REGEXP."
            ((looking-at "\\[\\(.*?\\)\\]")
             (setq lang (match-string 1))
             (re-search-forward "\\]" nil t))
-           ((looking-at "(\\([^)(]+\\))")
+           ((looking-at "(\\([^) (]+\\))")
             (let ((this-attrib (split-string (match-string 1) "#")))
               (setq class (car this-attrib))
               (setq id (cadr this-attrib)))
@@ -268,9 +269,15 @@ or STOP-REGEXP."
            ((equal this-char ?\_)
             (setq textile-header t)
             (forward-char 1))
-;;         ((equal this-char ?\|)
-;;          (forward-char 1)) ; filters - FIXME
-            (t (forward-char 1))))))
+           ((and (equal this-char ?\|)
+                 (boundp 'Textile-in-table))
+            (setq my-plist (plist-put nil 'textile-attrib-string-length 0)))
+           (t
+             ; if you hit something you don't recognize, then this
+             ; isn't an attribute string
+            (setq my-plist (plist-put nil
+                                      'textile-attrib-string-length 0))
+            (goto-char (point-max)))))))
      (if (> left-pad 0)
          (setq style (concat style "padding-left: "
                              (format "%d" left-pad) "em; ")))
@@ -287,6 +294,10 @@ or STOP-REGEXP."
        (when (string= (eval this-variable) "")
          (set this-variable nil))
        (setq my-plist (plist-put my-plist this-variable (eval this-variable))))
+;;      (message "Attribute length for \"%s\" (length %s) is %s"
+;;               attrib-string (length attrib-string)
+;;               (plist-get my-plist
+;;                          'textile-attrib-string-length))
      my-plist))
 
 (defun textile-process-block ()
@@ -459,10 +470,11 @@ individual cells and rows as necessary."
         (textile-delete-attributes row-attributes)
         (textile-tag-insert "tr" row-attributes)
         (while (not (or (looking-at "\n") (eobp)))
-          (let* ((cell-attributes (textile-attributes "[A-Za-z0-9]"))
+;          (let* ((cell-attributes (textile-attributes "[A-Za-z0-9]"))
+          (let* ((cell-attributes (textile-attributes "[.] +"))
                  (header (or (plist-get row-attributes 'textile-header)
                              (plist-get cell-attributes 'textile-header))))
-            (textile-delete-attributes cell-attributes t)
+            (textile-delete-attributes cell-attributes)
             (textile-tag-insert
              (if header
                  "th"
@@ -475,7 +487,9 @@ individual cells and rows as necessary."
                                         "th"
                                       "td"))))
         (textile-end-tag-insert "tr")
-        (re-search-forward "\n" nil 1))))
+        (re-search-forward "\n" nil 1)
+        (if (looking-at " *|")
+            (replace-match "")))))
   (makunbound 'Textile-in-table))
 
 (defun textile-inline-li ()
@@ -779,12 +793,12 @@ Any attributes that start with \"textile-\" will be ignored."
 (defun textile-delete-attributes (attributes &optional leave-last)
   "Delete textile-tagged attributes starting at (point).
 If LEAVE-LAST is t, then don't delete the last stopping-point character."
-  (delete-region (point)
-                 (+ (point)
-                    (plist-get attributes
-                               'textile-attrib-string-length)
-                    (if leave-last
-                        -1
-                      0))))
+  (let ((length (plist-get attributes 'textile-attrib-string-length)))
+    (if (> length 0)
+        (delete-region (point)
+                       (+ (point) length
+                          (if leave-last
+                              -1
+                            0))))))
 
 (provide 'textile)
