@@ -55,28 +55,61 @@
                    (style (get attributes 'style))
                    (class (get attributes 'class))
                    (id (get attributes 'id))
+                   (lang (get attributes 'lang))
                    (my-function
                     (car (read-from-string (concat "textile-block-" tag)))))
               (if (fboundp my-function)
-                  (funcall my-function extended style class id)
-                (textile-block-p nil nil nil nil)))
-          (textile-block-p nil nil nil nil))))
+                  (funcall my-function extended style class id lang)
+                (textile-block-p nil nil nil nil nil)))
+          (textile-block-p nil nil nil nil nil))))
   (widen))
 
 (defun textile-attributes (attrib-string)
-  (let ((my-plist t))
+  (let ((my-plist t)
+        (style nil)
+        (class nil)
+        (id nil)
+        (lang nil))
     ; FIXME - actually put something here rather than nil
-    (put 'my-plist 'style nil)
-    (put 'my-plist 'class nil)
-    (put 'my-plist 'id nil)
+    (message "Attrib string is %s." attrib-string)
+    (with-temp-buffer
+      (insert attrib-string)
+      (beginning-of-buffer)
+      (while
+          (progn
+            ; FIXME - filters (yikes), padding, alignment
+            (let ((this-char (char-after)))
+              (cond
+               ((equal this-char ?\{)
+                (if (re-search-forward "\\(.*?\\)\\\\}" nil t)
+                    (setq style (match-string 1)))
+                (forward-char 1)) ; style rule
+               ((equal this-char ?\[)
+                (forward-char 1)) ; lang rule
+               ((equal this-char ?\()
+                (forward-char 1)) ; class/id rule
+               ((equal this-char ?\>)
+                (forward-char 1)) ; right-justify
+               ((equal this-char ?\<)
+                (forward-char 1)) ; left-justify or full
+               ((equal this-char ?\=)
+                (forward-char 1)) ; centered
+               ((equal this-char ?\|)
+                (forward-char 1)) ; filters - FIXME
+               (t (forward-char 1))))
+            (not (eobp)))))
+    (put 'my-plist 'style style)
+    (put 'my-plist 'class class)
+    (put 'my-plist 'id id)
+    (put 'my-plist 'lang lang)
     my-plist))
 
-(defun textile-block-p (extended style class id)
+(defun textile-block-p (extended style class id lang)
   (if extended
       (textile-error "Extended <p> block doesn't make sense.")
     (if (looking-at (textile-this-block-tag-regexp "p"))
         (textile-delete-tag "p"))
-    (textile-block-start-tag-insert "p" style class id)
+    (textile-block-start-tag-insert "p" style class id lang)
     (textile-end-of-paragraph)
     (textile-block-end-tag-insert "p")
     (textile-next-paragraph)))
@@ -101,7 +134,7 @@
   (interactive "r")
   (textile-code-to-blocks start end))
 
-(defun textile-block-start-tag-insert (tag style class id)
+(defun textile-block-start-tag-insert (tag style class id lang)
   (insert (concat "<" tag))
   (if id
       (insert (concat " id=\"" id "\"")))
@@ -109,6 +142,8 @@
       (insert (concat " class=\"" class "\"")))
   (if style
       (insert (concat " style=\"" style "\"")))
+  (if lang
+      (insert (concat " lang=\"" lang "\"")))
   (insert ">"))
 
 (defun textile-block-end-tag-insert (tag)
