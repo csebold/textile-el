@@ -149,7 +149,8 @@ behavior (this could probably work with longlines.el or something
 like that).")
 
 (defvar textile-utf-16-capable
-  (or (coding-system-p 'utf-16-be)
+  (or (coding-system-p 'utf-16be)
+      (coding-system-p 'utf-16-be)
       (coding-system-p 'utf-16-be-no-signature))
   "If we have utf-16, then we can do entity conversion.")
 
@@ -1017,10 +1018,10 @@ or STOP-REGEXP."
                                                 'utf-16be))
           (unicode-values nil)
           (output ""))
-      (setq unicode-values (delete "" ; necessary for 21.4 split-string?
-                                   (mapcar 'string-to-char
-                                           (split-string
-                                            unicode-string ""))))
+      (setq unicode-values (mapcar 'string-to-char
+				   (delete "" ; needed for 21.4 split-string?
+					   (split-string
+					    unicode-string ""))))
       (while (cdr unicode-values)
         (setq output (concat output "&#" (number-to-string
                                           (+ (* (car unicode-values) 256)
