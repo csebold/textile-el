@@ -14,6 +14,8 @@ h1. This is a first-level header.
 
 * This is a single-item unordered list.
 
+Here are the inline tests: We have a *strong,* an _emphasized,_ a **bold,** an __italics,__ a ++bigger,++ a --smaller,-- something -deleted,- something +inserted,+ some ^superscript,^ some ~subscript,~ a %{color: red;}red span,% and @some code, including something like 2>&1.@  And here's some ==*escaped text*== just to see what happens.
+
 p)>. This should be a paragraph, floated right and padded on the right by 1 em.
 
 bq. This is a blockquote.
@@ -34,9 +36,10 @@ has a newline character in it.  Yikes.|
 |I hope that this works.|
 
 table(#table1). _|row 1, col 1|row 1, col 2|
-|\2 row 2, cols 1-2|
-|/2 rows 3-4, col 1|row 3, col 2|
+|\2. row 2, cols 1-2|
+|/2. rows 3-4, col 1|row 3, col 2|
 |row 4, col 2|
+|^. row 5, col 1|~. row5, col 2|
 
 table(tbl1). (head)|_. column 1 |_.      column 2 |_>.     column 3 |
                    |   1        |        2        |(test).        3 |
