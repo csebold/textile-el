@@ -28,10 +28,20 @@ and here's a line break to make things really interesting
 term with spaces:the definition should be self-evident
 finally:a last definition to see if it works
 
-table. |This is a simple table.|
+|This is a simple table.|
 >|Here is a cell that
 has a newline character in it.  Yikes.|
 |I hope that this works.|
+
+table(#table1). _|row 1, col 1|row 1, col 2|
+|\2 row 2, cols 1-2|
+|/2 rows 3-4, col 1|row 3, col 2|
+|row 4, col 2|
+
+table(tbl1). (head)|_. column 1 |_.      column 2 |_>.     column 3 |
+                   |   1        |        2        |(test).        3 |
+                   |   4        |(#foo). 5        |               6 |
+                   |   7        |        8        |(test#bar).    9 |
 
 bc.. This is code
   Which you can see is a little bit
