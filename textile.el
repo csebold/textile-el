@@ -1,9 +1,9 @@
 ; textile.el
 ; $Id$
 
-; by Charles Sebold <csebold@livingtorah.org>
+; by Charles Sebold <csebold@gmail.com>
 
-;;; Copyright: (C) 2004 Charles Sebold
+;;; Copyright: (C) 2004, 2008 Charles Sebold
 ;; 
 ;;     This program is free software; you can redistribute it and/or
 ;;     modify it under the terms of the GNU General Public License as
@@ -21,7 +21,7 @@
 ;;     MA 02111-1307, USA.
 ;;
 ;; Latest version should be available at:
-;;    <URL:http://www.livingtorah.org/~csebold/emacs/textile/>
+;;    <URL:http://merbc.invigorated.org/emacs/textile/>
 
 ; Note - in comments, DA = Dean Allen (original author of PHP Textile),
 ; BC = Brad Choate (implemented Textile v2 in Perl for Movable Type)
@@ -65,8 +65,8 @@
 ;
 ; Do NOT send bug reports on textile.el to Dean Allen or Brad Choate;
 ; they had nothing to do with the Emacs implementation.  Send bug
-; reports to textile-bug@livingtorah.org, preferably along with sample
-; text and some description of what you expected to see.
+; reports to csebold@gmail.com, preferably along with sample text and
+; some description of what you expected to see.
 
 ; Bugs from BC's test cases which I wasn't sure how to annotate yet:
 
