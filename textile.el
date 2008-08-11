@@ -293,9 +293,10 @@ If ARG, insert string at point."
                 ; what is the end delimiter for ==>?  Not sure yet, FIXME
                     (if (not (re-search-forward "^-\\{3,\\} *\n" nil t))
                         (re-search-forward "\n\n" nil t))
-                  (if (not (re-search-forward "^\\(== *\\)\\(\n\n\\)?" nil t))
+                  (replace-match "")
+                  (if (not (re-search-forward "\n\\(== *\\)\\(\n\n\\)?" nil t))
                       (goto-char (point-max))
-                    (replace-match "\\1")))
+                    (replace-match "")))
                 (push (buffer-substring (point-min) (point)) new-list)
                 (delete-region (point-min) (point)))
                ((and (looking-at (textile-this-block-tag-regexp "bc"))
