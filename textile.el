@@ -21,7 +21,7 @@
 ;;     MA 02111-1307, USA.
 ;;
 ;; Latest version should be available at:
-;;    <URL:http://merbc.invigorated.org/emacs/textile/>
+;;    <URL:http://zancanda.staticcling.org/emacs/textile/>
 
 ; Note - in comments, DA = Dean Allen (original author of PHP Textile),
 ; BC = Brad Choate (implemented Textile v2 in Perl for Movable Type)
