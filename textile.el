@@ -76,7 +76,7 @@
 ;;                                 than two
 ;; FIXME: testcases.txt, stopped reading the test results after line 665
 
-(defvar textile-version "Textile.el v0.99.1"
+(defvar textile-version "Textile.el v0.99.2"
   "Version number for textile.el.")
 
 (defvar textile-block-tag-regexp-start "^\\("
@@ -190,7 +190,7 @@ like that).")
   '("XHTML 1.0 Strict" "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">"
     "XHTML 1.0 Transitional" "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">"
     "XHTML 1.0 Frameset" "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Frameset//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-frameset.dtd\">"
-    "XHTML 1.1" "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1//EN\" \"xhtml11-flat.dtd\">")
+    "XHTML 1.1" "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1//EN\" \"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd\">")
   "Standard HTML doctypes so that a Textile document can be self-contained.")
 
 (defun textile-header (title &optional html-version charset &rest headers)
