@@ -68,10 +68,6 @@
 ; reports to csebold@gmail.com, preferably along with sample text and
 ; some description of what you expected to see.
 
-; Bugs in more ordinary usage:
-
-;; FIXME: bc_sample.txt, line 18, extended blockquote failed to extend
-
 ; Bugs from BC's test cases which I wasn't sure how to annotate yet:
 
 ;; FIXME: testcases.txt, line 635, not sure I agree with title handling
@@ -312,17 +308,35 @@ If ARG, insert string at point."
                      (string= (match-string 3) ".."))
                 (replace-match "")
                 (let ((end-of-block
-                       (catch 'found-next-block
+                       (catch 'bc-found-next-block
                          (while (re-search-forward "\n\n" nil t)
                            (when (save-match-data
                                    (looking-at textile-any-block-tag-regexp))
                              (replace-match "")
-                             (throw 'found-next-block (point))))
+                             (throw 'bc-found-next-block (point))))
                          (point-max))))
                   (push (list (list (buffer-substring (point-min)
                                                       end-of-block)
                                     (list 'textile-tag "code"))
                               (list 'textile-tag "pre"))
+                        new-list)
+                  (delete-region (point-min) end-of-block)))
+               ; I guess this is where I will put extended bq support
+               ((and (looking-at (textile-this-block-tag-regexp "bq"))
+                     (string= (match-string 3) ".."))
+                (replace-match "")
+                (let ((end-of-block
+                       (catch 'bq-found-next-block
+                         (while (re-search-forward "\n\n" nil t)
+                           (when (save-match-data
+                                   (looking-at textile-any-block-tag-regexp))
+                             (replace-match "")
+                             (throw 'bq-found-next-block (point))))
+                         (point-max))))
+                  (push (list (textile-block-to-list (buffer-substring
+                                                      (point-min)
+                                                      end-of-block))
+                              (list 'textile-tag "blockquote"))
                         new-list)
                   (delete-region (point-min) end-of-block)))
                (t
