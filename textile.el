@@ -67,14 +67,8 @@
 ; they had nothing to do with the Emacs implementation.  Send bug
 ; reports to csebold@gmail.com, preferably along with sample text and
 ; some description of what you expected to see.
-
-; Bugs from BC's test cases which I wasn't sure how to annotate yet:
-
-;; FIXME: testcases.txt, line 635, not sure I agree with title handling
-;; FIXME: testcases.txt, line 645, doubled the "caps" span, oops
-;; FIXME: testcases.txt, line 665, BC skips groups of asterisks greater
-;;                                 than two
-;; FIXME: testcases.txt, stopped reading the test results after line 665
+;
+; See docs/bugs.txt for the bugs in this version.
 
 (defvar textile-version "Textile.el v0.99.2"
   "Version number for textile.el.")
@@ -274,7 +268,7 @@ If ARG, insert string at point."
 (defun textile-string-to-list (my-string)
   "Process textile-encoded MY-STRING and return a textile list tree."
   (let ((old-eval-depth max-lisp-eval-depth))
-    (setq max-lisp-eval-depth (+ 100 max-lisp-eval-depth))
+    (setq max-lisp-eval-depth (+ 400 max-lisp-eval-depth))
     (setq textile-alias-list textile-alias-list-defaults)
     (setq textile-macros-list textile-macros-list-defaults)
     (prog1
@@ -324,6 +318,7 @@ If ARG, insert string at point."
                ; I guess this is where I will put extended bq support
                ((and (looking-at (textile-this-block-tag-regexp "bq"))
                      (string= (match-string 3) ".."))
+                ; FIXME: need to get the attributes before replace-match!
                 (replace-match "")
                 (let ((end-of-block
                        (catch 'bq-found-next-block
@@ -334,8 +329,8 @@ If ARG, insert string at point."
                              (throw 'bq-found-next-block (point))))
                          (point-max))))
                   (push (list (textile-block-to-list (buffer-substring
-                                                      (point-min)
-                                                      end-of-block))
+                                                       (point-min)
+                                                       end-of-block))
                               (list 'textile-tag "blockquote"))
                         new-list)
                   (delete-region (point-min) end-of-block)))
