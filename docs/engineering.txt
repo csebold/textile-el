@@ -1,0 +1,12 @@
+-*- mode: text; -*-
+
+In version 2 of textile.el, we are going to do a full rewrite.  The idea
+is to create a table of textile tags and what effect they have (perhaps
+that will be just a function name, much like what we have now), which
+can be compiled at load-time into a regexp.  Same with a table of style
+codes.
+
+Then we make a parsing system that works, and we can plug other kinds of
+markup into it.
+
+$Id$
