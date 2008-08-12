@@ -68,6 +68,10 @@
 ; reports to csebold@gmail.com, preferably along with sample text and
 ; some description of what you expected to see.
 
+; Bugs in more ordinary usage:
+
+;; FIXME: bc_sample.txt, line 18, extended blockquote failed to extend
+
 ; Bugs from BC's test cases which I wasn't sure how to annotate yet:
 
 ;; FIXME: testcases.txt, line 635, not sure I agree with title handling
@@ -301,6 +305,7 @@ If ARG, insert string at point."
                 (delete-region (point-min) (point)))
                ((and (looking-at (textile-this-block-tag-regexp "bc"))
                      (string= (match-string 3) ".."))
+                (replace-match "")
                 (let ((end-of-block
                        (catch 'found-next-block
                          (while (re-search-forward "\n\n" nil t)
@@ -308,8 +313,12 @@ If ARG, insert string at point."
                                    (looking-at textile-any-block-tag-regexp))
                              (replace-match "")
                              (throw 'found-next-block (point))))
-                         (point))))
-                  (push (buffer-substring (point-min) end-of-block) new-list)
+                         (point-max))))
+                  (push (list (list (buffer-substring (point-min)
+                                                      end-of-block)
+                                    (list 'textile-tag "code"))
+                              (list 'textile-tag "pre"))
+                        new-list)
                   (delete-region (point-min) end-of-block)))
                (t
                 (if (re-search-forward "\n\n" nil t)
@@ -427,6 +436,8 @@ If ARG, insert string at point."
 
 (defun textile-blockcode-blocks (my-list)
   "In a list of block strings, bring blockcode blocks together."
+  ; I suspect that the code to handle extended blocks here is
+  ; unnecessary; that is happening earlier, no?
   (let ((new-list nil))
     (while my-list
       (let* ((this-item (car my-list)))
@@ -447,7 +458,9 @@ If ARG, insert string at point."
                           (plist-put my-attr 'textile-tag "pre"))
                     new-list))
           (push this-item new-list))))
-    (reverse new-list)))
+    (if (= (safe-length new-list) 1)
+        (car (reverse new-list))
+      (reverse new-list))))
 
 (defun textile-block-to-list (my-string)
   "Process textile-encoded MY-STRING and return a textile block tree."
