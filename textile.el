@@ -288,6 +288,11 @@ If ARG, insert string at point."
             (insert (textile-manual-pre
                      (textile-process-elisp
                       (textile-process-aliases my-string))))
+            ; delete whitespace at the end
+            (save-excursion
+              (goto-char (point-max))
+              (if (re-search-backward "[\n ]+" nil t)
+                  (replace-match "")))
             (while (not (equal (point-min) (point-max)))
               (goto-char (point-min))
               (cond
