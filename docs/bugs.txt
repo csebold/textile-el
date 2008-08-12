@@ -1,0 +1,22 @@
+* Oh, I just realized, a line starting with ==> means "literal, but
+  float right".  Duh.
+* Extended blockquotes are pretty broken.  The extended block code needs
+  a rewrite.  Again.
+* Emacs is just stopping processing of BC's unit tests after about 600
+  lines.  Not sure why.
+* FIXME: testcases.txt, line 285, blockquote attributes (new bug)
+* FIXME: testcases.txt, line 595, interesting - he doesn't change the
+  apos
+* FIXME: testcases.txt, line 605, failed superscripts (?)
+* FIXME: testcases.txt, line 605, nothing changed after that, what
+  happened?
+
+old notes on this:
+
+* FIXME: testcases.txt, line 635, not sure I agree with title handling
+* FIXME: testcases.txt, line 645, doubled the "caps" span, oops
+* FIXME: testcases.txt, line 665, BC skips groups of asterisks greater
+*                                 than two
+* FIXME: testcases.txt, stopped reading the test results after line 665
+
+$Id$
