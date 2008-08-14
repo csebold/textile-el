@@ -141,6 +141,16 @@
           (concat (buffer-name) "-" (number-to-string inc) ".html"))
       (concat (buffer-name) ".html"))))
 
+(if (condition-case nil
+        (split-string "a" "" t)
+      (error nil))
+    (defun Textile-split-string (my-string separator)
+      "Split MY-STRING by SEPARATOR and don't return empty substrings."
+      (split-string my-string separator t))
+  (defun Textile-split-string (my-string separator)
+    "Split MY-STRING by SEPARATOR and don't return empty substrings."
+    (split-string my-string separator)))
+
 (defun textile-buffer ()
   "Call textile-code-to-blocks on the entire buffer."
   (interactive)
@@ -152,10 +162,108 @@
     (let ((return-string ""))
       (if (string-match "^:" cite-arg)
           (setq cite-arg (replace-match "" t t cite-arg)))
+      (with-temp-buffer
+        (insert style-arg)
+        (goto-char (point-min))
+        (let ((my-plist nil)
+              (style nil)
+              (class nil)
+              (id nil)
+              (lang nil)
+              (left-pad 0)
+              (right-pad 0)
+              (align nil)
+              (valign nil)
+              (rowspan nil)
+              (colspan nil)
+              (textile-header nil)
+              (not-finished t)
+              (textile-well-formed t))
+          (while (not (eobp))
+            (let ((this-char (char-after)))
+            (cond
+             ((looking-at "{\\([^}]*\\)}")
+              (push (match-string 1) style)
+              (re-search-forward "}" nil t))
+             ((looking-at "\\[\\(.*?\\)\\]")
+              (setq lang (match-string 1))
+              (re-search-forward "\\]" nil t))
+             ((looking-at "(\\([^) (]+\\))")
+              (let ((this-attrib (save-match-data
+                                   (Textile-split-string
+                                    (match-string 1) "#"))))
+                (if (and (string-match "#" (match-string 1))
+                         (= (match-beginning 0) 0))
+                    (setq id (car this-attrib))
+                  (push (car this-attrib) class)
+                  (setq id (cadr this-attrib))))
+              (re-search-forward ")" nil t))
+             ((equal this-char ?\()
+              (setq left-pad (1+ left-pad))
+              (forward-char 1))
+             ((equal this-char ?\))
+              (setq right-pad (1+ right-pad))
+              (forward-char 1))
+             ((equal this-char ?\>)
+              ; this will change if it's in a table
+              (push "right" class)
+              (push "text-align:right" style)
+              (forward-char 1))
+             ((looking-at "<>")
+              (push "justify" class)
+              (push "text-align:justify" style)
+              (forward-char 2))
+             ((equal this-char ?\<)
+              (push "left" class)
+              (push "text-align:left" style)
+              (forward-char 1))
+             ((equal this-char ?\=)
+              (push "center" class)
+              (push "text-align:center" style)
+              (forward-char 1)))))
+          (if (> left-pad 0)
+              (push (concat "padding-left:" (format "%d" left-pad) "em") style))
+          (if (> right-pad 0)
+              (push (concat "padding-right:" (format "%d" right-pad) "em")
+                    style))
+          (when (and (or (> left-pad 0) (> right-pad 0))
+                     style)
+            (when (member "text-align:left" style)
+              (setq style (delete "text-align:left" style))
+              (push "float:left" style))
+            (when (member "text-align:right" style)
+              (setq style (delete "text-align:right" style))
+              (push "float:right" style)))
+          (dolist (this-variable '(style class id lang align valign
+                                         colspan rowspan
+                                         textile-header textile-well-formed))
+            (when (and (stringp (eval this-variable))
+                       (string= (eval this-variable) ""))
+              (set this-variable nil)))
+          (if class
+              (setq return-string (concat return-string " class=\""
+                                          (Textile-string-concat class " ")
+                                          "\"")))
+          (if id
+              (setq return-string (concat return-string " id=\"" id "\"")))
+          (if style
+              (setq return-string (concat return-string " style=\""
+                                          (Textile-string-concat style ";")
+                                          "\"")))
+          (if lang
+              (setq return-string (concat return-string " lang=\"" lang "\"")))
+          ))
       (if (and (string= context-arg "blockquote")
                (> (length cite-arg) 0))
           (setq return-string (concat return-string " cite=\"" cite-arg "\"")))
       return-string)))
+
+(defun Textile-string-concat (my-list separator)
+  "Return all strings concatenated with separator between them."
+  (if (cdr my-list)
+      (concat (car my-list) separator (Textile-string-concat (cdr my-list)
+                                                             separator))
+    (car my-list)))
 
 (defun textile-string (my-string)
   "The workhorse loop.  Take MY-STRING, dump it in a temp buffer, and
