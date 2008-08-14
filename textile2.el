@@ -110,7 +110,7 @@
   "Standard HTML doctypes so that a Textile document can be self-contained.")
 
 (defvar Textile-tag-re-list
-  '(("bq" "blockquote") ("p" "p") ("h1" "h1") ("h2" "h2") ("h3" "h3")
+  '(("bq" "blockquote" "p") ("p" "p") ("h1" "h1") ("h2" "h2") ("h3" "h3")
     ("h4" "h4") ("h5" "h5"))
   "List of Textile tags and their HTML counterparts.")
 
@@ -150,7 +150,10 @@
   "Interpret the attributes for block tags and return the actual XHTML string."
   (save-match-data
     (let ((return-string ""))
-      (if (> (length cite-arg) 0)
+      (if (string-match "^:" cite-arg)
+          (setq cite-arg (replace-match "" t t cite-arg)))
+      (if (and (string= context-arg "blockquote")
+               (> (length cite-arg) 0))
           (setq return-string (concat return-string " cite=\"" cite-arg "\"")))
       return-string)))
 
@@ -173,22 +176,47 @@
           (setq end-pos (point-max)))
         (insert (Textile-new-token (delete-and-extract-region
                                     start-pos end-pos)))))
+    ; footnote processor
+    (goto-char (point-min))
+    (while (re-search-forward "^fn\\([0-9]+\\)\\. " nil t)
+      (replace-match (Textile-new-token (concat "<p class=\"footnote\" id=\"fn"
+                                                (match-string 1)
+                                                "\"><sup>"
+                                                (match-string 1)
+                                                "</sup> ")))
+      (if (re-search-forward "\n\n" nil t)
+          (replace-match (Textile-new-token "</p>\n\n"))
+        (goto-char (point-max))
+        (insert (Textile-new-token "</p>"))))
     ; go through Textile tags
     (goto-char (point-min))
     (while (re-search-forward (concat "^" Textile-tags
                                       "\\([^.]*\\)\\.\\(:[^ ]*\\|\\) ") nil t)
-      (let ((my-tag (cadr (assoc (match-string 1) Textile-tag-re-list))))
-        (replace-match (Textile-new-token (concat "<" my-tag
+      (let* ((my-tags (cdr (assoc (match-string 1) Textile-tag-re-list)))
+             (my-1st-tag (car my-tags))
+             (my-2nd-tag (cadr my-tags))
+             (my-close-tag (concat (if my-2nd-tag
+                                       (concat "</" my-2nd-tag ">"))
+                                   "</" my-1st-tag ">")))
+        (replace-match (Textile-new-token (concat "<" my-1st-tag
                                                   " et_context=\""
-                                                  my-tag
+                                                  my-1st-tag
                                                   "\" et_style=\""
                                                   (match-string 2)
                                                   "\" et_cite=\""
-                                                  (match-string 3) "\">")))
+                                                  (match-string 3) "\">"
+                                                  (if my-2nd-tag
+                                                      (concat "<"
+                                                              my-2nd-tag
+                                                              ">")))))
         (if (re-search-forward "\n\n" nil t)
-            (replace-match (Textile-new-token (concat "</" my-tag ">\n\n")))
+            (replace-match (Textile-new-token (concat my-close-tag "\n\n")))
           (goto-char (point-max))
-          (insert (Textile-new-token (concat "</" my-tag ">\n\n"))))))
+          (insert (Textile-new-token my-close-tag)))))
+    ; revert tokens
+    (goto-char (point-min))
+    (while (re-search-forward "emacs_textile_token_[0-9]+_x" nil t)
+      (replace-match (Textile-get-token (match-string 0)) t t))
     ; interpret attributes
     (goto-char (point-min))
     (while (re-search-forward (concat " et_context=\"\\(.*\\)\""
@@ -198,10 +226,6 @@
     (replace-match (Textile-interpret-attributes (match-string 1)
                                                    (match-string 2)
                                                    (match-string 3))))
-    ; revert tokens
-    (goto-char (point-min))
-    (while (re-search-forward "emacs_textile_token_[0-9]+_x" nil t)
-      (replace-match (Textile-get-token (match-string 0)) t t))
     (buffer-string)))
 
 (provide 'textile)
