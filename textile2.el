@@ -287,6 +287,21 @@
           (setq end-pos (point-max)))
         (insert (Textile-new-token (delete-and-extract-region
                                     start-pos end-pos)))))
+    ; blockcode processor, sticky (goes here)
+    ; blockcode processor, non-sticky
+    (goto-char (point-min))
+    (while (or (looking-at "bc\\([^.]*\\)\\.\\(:[^ ]*\\|\\) ")
+               (re-search-forward "^bc\\([^.]*\\)\\.\\(:[^ ]*\\|\\) " nil t))
+      (replace-match (Textile-new-token
+                      (concat "<pre et_context=\"pre\" et_style=\""
+                              (match-string 1) "\" et_cite=\"" (match-string 2)
+                              "\"><code>")))
+      (if (looking-at "\\(.*\\)\n\n")
+          (replace-match (Textile-new-token (concat (match-string 1)
+                                                    "</code></pre>\n\n")))
+        (insert (Textile-new-token (concat (delete-and-extract-region
+                                            (point) (point-max)
+                                            "</code></pre>\n\n"))))))
     ; footnote processor
     (goto-char (point-min))
     (while (re-search-forward "^fn\\([0-9]+\\)\\. " nil t)
@@ -299,6 +314,26 @@
           (replace-match (Textile-new-token "</p>\n\n"))
         (goto-char (point-max))
         (insert (Textile-new-token "</p>"))))
+    ; go through Textile sticky blockquote tags
+    (goto-char (point-min))
+    (while (or (looking-at "bq\\([^.]*\\)\\.\\.\\(:[^ ]*\\|\\) ")
+               (re-search-forward "bq\\([^.]*\\)\\.\\.\\(:[^ ]*\\|\\) " nil t))
+      (replace-match (Textile-new-token
+                      (concat "<blockquote et_context=\"blockquote\" et_style=\""
+                              (match-string 1) "\" et_cite=\"" (match-string 2)
+                              "\"><p>")))
+      (let ((end-tag-found nil))
+        (while (and (not end-tag-found)
+                    (re-search-forward "\n\n" nil t))
+          (if (save-match-data
+                (looking-at (concat "\\(emacs_textile_token_[0-9]+_x\\)\\|\\("
+                                    Textile-tags
+                                    "\\([^.]*\\)\\.\\(:[^ ]*\\|\\) \\)")))
+              (progn
+                (replace-match (Textile-new-token "</p></blockquote>\n\n"))
+                ; be careful, this could cause us to skip a token later
+                (setq end-tag-found t))
+            (replace-match (Textile-new-token "</p>\n\n<p>"))))))
     ; go through Textile tags
     (goto-char (point-min))
     (while (or (looking-at (concat Textile-tags
@@ -336,9 +371,10 @@
                                       " et_style=\"\\([^\"]*\\)\""
                                       " et_cite=\"\\(.*\\)\"")
                               nil t)
-    (replace-match (Textile-interpret-attributes (match-string 1)
+      (replace-match (Textile-interpret-attributes (match-string 1)
                                                    (match-string 2)
-                                                   (match-string 3))))
+                                                   (match-string 3)))
+      (goto-char (point-min)))
     (buffer-string)))
 
 (provide 'textile)
