@@ -165,6 +165,9 @@
       (with-temp-buffer
         (insert style-arg)
         (goto-char (point-min))
+        (while (re-search-forward "\n" nil t)
+          (replace-match " "))
+        (goto-char (point-min))
         (let ((my-plist nil)
               (style nil)
               (class nil)
@@ -298,8 +301,10 @@
         (insert (Textile-new-token "</p>"))))
     ; go through Textile tags
     (goto-char (point-min))
-    (while (re-search-forward (concat "^" Textile-tags
-                                      "\\([^.]*\\)\\.\\(:[^ ]*\\|\\) ") nil t)
+    (while (or (looking-at (concat Textile-tags
+                                   "\\([^.]*\\)\\.\\(:[^ ]*\\|\\) "))
+               (re-search-forward (concat "^" Textile-tags
+                                          "\\([^.]*\\)\\.\\(:[^ ]*\\|\\) ") nil t))
       (let* ((my-tags (cdr (assoc (match-string 1) Textile-tag-re-list)))
              (my-1st-tag (car my-tags))
              (my-2nd-tag (cadr my-tags))
@@ -328,7 +333,7 @@
     ; interpret attributes
     (goto-char (point-min))
     (while (re-search-forward (concat " et_context=\"\\(.*\\)\""
-                                      " et_style=\"\\(.*\\)\""
+                                      " et_style=\"\\([^\"]*\\)\""
                                       " et_cite=\"\\(.*\\)\"")
                               nil t)
     (replace-match (Textile-interpret-attributes (match-string 1)
