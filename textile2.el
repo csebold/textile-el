@@ -76,6 +76,10 @@
 (defvar Textile-tokens (make-hash-table :test 'eql)
   "Token hash table; this is currently a global, which is probably unwise.")
 
+(defvar Textile-token-re
+  "emacs_textile_token_[0-9]+_x"
+  "Regular expression for finding a token.")
+
 (defun Textile-new-token (my-string)
   "Add MY-STRING to token hash table; returns string tag which replaces it."
   (let ((current-index (hash-table-count Textile-tokens)))
@@ -254,6 +258,7 @@
                                           (Textile-string-concat style ";")
                                           "\"")))
           (if lang
+              ; don't forget to change this if running XHTML 1.1 (xml:lang)
               (setq return-string (concat return-string " lang=\"" lang "\"")))
           ))
       (if (and (string= context-arg "blockquote")
@@ -267,6 +272,13 @@
       (concat (car my-list) separator (Textile-string-concat (cdr my-list)
                                                              separator))
     (car my-list)))
+
+(defun Textile-table-process (my-string)
+  "Process Textile table code in MY-STRING, return tokenized text for each
+cell."
+  (with-temp-buffer
+    (insert "TABLE HERE" my-string "TABLE ENDS")
+    (buffer-string)))
 
 (defun textile-string (my-string)
   "The workhorse loop.  Take MY-STRING, dump it in a temp buffer, and
@@ -288,6 +300,27 @@
         (insert (Textile-new-token (delete-and-extract-region
                                     start-pos end-pos)))))
     ; blockcode processor, sticky (goes here)
+    (goto-char (point-min))
+    (while (or (looking-at "bc\\([^.]*\\)\\.\\.\\(:[^ ]*\\|\\) ")
+               (re-search-forward "^bc\\([^.]*\\)\\.\\.\\(:[^ ]*\\|\\) " nil t))
+      (replace-match (Textile-new-token
+                      (concat "<pre et_context=\"pre\" et_style=\""
+                              (match-string 1) "\" et_cite=\"" (match-string 2)
+                              "\"><code>")))
+      (let ((start-point (point))
+            (end-point (re-search-forward
+                        (concat "\\(.*\\)\\(\n\n" Textile-tags
+                                "\\([^.]*\\)\\.\\(:[^ ]*\\|\\) \\)") nil t)))
+        (if end-point
+            (replace-match (concat (Textile-new-token
+                                    (concat (match-string 1)
+                                            "</code></pre>"))
+                                   (match-string 2)))
+          (goto-char (point-max))
+          (setq end-point (point))
+          (insert (Textile-new-token (concat (delete-and-extract-region
+                                              start-point end-point)
+                                             "</code></pre>"))))))
     ; blockcode processor, non-sticky
     (goto-char (point-min))
     (while (or (looking-at "bc\\([^.]*\\)\\.\\(:[^ ]*\\|\\) ")
@@ -326,7 +359,7 @@
         (while (and (not end-tag-found)
                     (re-search-forward "\n\n" nil t))
           (if (save-match-data
-                (looking-at (concat "\\(emacs_textile_token_[0-9]+_x\\)\\|\\("
+                (looking-at (concat "\\(" Textile-token-re "\\)\\|\\("
                                     Textile-tags
                                     "\\([^.]*\\)\\.\\(:[^ ]*\\|\\) \\)")))
               (progn
@@ -334,11 +367,28 @@
                 ; be careful, this could cause us to skip a token later
                 (setq end-tag-found t))
             (replace-match (Textile-new-token "</p>\n\n<p>"))))))
+    ; find tables, call out to table processor
+    (goto-char (point-min))
+    (while (or (looking-at "table[^.]*\\. ")
+               (re-search-forward "^table[^.]*\\. " nil t))
+      (let ((first-part (match-string 0))
+            (second-part ""))
+        ; this isn't working to find the end of the table, FIXME
+        (replace-match "")
+        (save-match-data
+          (if (looking-at "\\(.*\\)\n\n")
+              (progn
+                (setq second-part (match-string 1))
+                (replace-match "\n\n"))
+            (setq second-part (delete-and-extract-region
+                               (point) (point-max)))))
+        (insert (Textile-table-process (concat first-part second-part)))))
     ; go through Textile tags
     (goto-char (point-min))
     (while (or (looking-at (concat Textile-tags
                                    "\\([^.]*\\)\\.\\(:[^ ]*\\|\\) "))
-               (re-search-forward (concat "^" Textile-tags
+               (re-search-forward (concat "^" "\\(?:" Textile-token-re "\\|\\)"
+                                          Textile-tags
                                           "\\([^.]*\\)\\.\\(:[^ ]*\\|\\) ") nil t))
       (let* ((my-tags (cdr (assoc (match-string 1) Textile-tag-re-list)))
              (my-1st-tag (car my-tags))
@@ -363,7 +413,8 @@
           (insert (Textile-new-token my-close-tag)))))
     ; revert tokens
     (goto-char (point-min))
-    (while (re-search-forward "emacs_textile_token_[0-9]+_x" nil t)
+    (while (or (looking-at Textile-token-re)
+               (re-search-forward Textile-token-re nil t))
       (replace-match (Textile-get-token (match-string 0)) t t))
     ; interpret attributes
     (goto-char (point-min))
