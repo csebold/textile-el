@@ -473,7 +473,7 @@ cell."
     ; BC one-line comments
     (while (re-search-forward "^//.*$" nil t)
       (replace-match (Textile-new-token (match-string 0))))
-    ; blockcode processor, sticky (goes here)
+    ; blockcode processor, sticky
     (goto-char (point-min))
     (while (or (looking-at "bc\\([^.]*\\)\\.\\.\\(:[^ ]*\\|\\) ")
                (re-search-forward "^bc\\([^.]*\\)\\.\\.\\(:[^ ]*\\|\\) "
@@ -611,6 +611,8 @@ cell."
                                (Textile-new-token
                                 (concat "</" my-tag ">"))) t t))
       (goto-char (point-min)))
+    ; OK, any block that stands alone is a paragraph by now.
+    ; So, figure out how to mark standalone paragraphs.
     ; revert tokens
     (goto-char (point-min))
     (while (or (looking-at Textile-token-re)
