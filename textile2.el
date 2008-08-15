@@ -29,7 +29,7 @@
 ; To use textile.el, put this file into your load path, and put the
 ; following into your .emacs file:
 ;
-; (require 'textile)
+; (require 'textile2)
 ;
 ; At this time Textile markup is only documented at
 ; <http://www.textism.com/tools/textile/> and
@@ -159,7 +159,22 @@
 
 (defvar Textile-tags
   (regexp-opt (mapcar 'car Textile-tag-re-list) t)
-  "Generated regular expression for Textile tags.")
+  "Generated regular expression for Textile block tags.")
+
+(defvar Textile-inline-tag-list
+  '(("*" "strong") ("_" "em") ("**" "b") ("__" "i") ("++" "big")
+    ("--" "small") ("-" "del") ("+" "ins") ("^" "sup") ("~" "sub")
+    ("%" "span") ("@" "code") ("??" "cite"))
+  "Link textile to HTML tags for inline formatting.")
+
+(defvar Textile-inline-tags
+  (regexp-opt (mapcar 'car Textile-inline-tag-list) t)
+  "Generated regular expression for Textile inline tags.")
+
+(defvar Textile-inline-tag-re
+  (concat "\\(?:^\\|\\W\\)" Textile-inline-tags
+          "\\([^\000]+?\\)\\(\\1\\)\\(?:$\\|\\W\\)")
+  "This will match any inline tag and what has been tagged.")
 
 (defun textile-region (start end)
   "Call textile-code-to-blocks on region from point to mark."
@@ -454,6 +469,10 @@ cell."
           (setq end-pos (point-max)))
         (insert (Textile-new-token (delete-and-extract-region
                                     start-pos end-pos)))))
+    (goto-char (point-min))
+    ; BC one-line comments
+    (while (re-search-forward "^//.*$" nil t)
+      (replace-match (Textile-new-token (match-string 0))))
     ; blockcode processor, sticky (goes here)
     (goto-char (point-min))
     (while (or (looking-at "bc\\([^.]*\\)\\.\\.\\(:[^ ]*\\|\\) ")
@@ -581,6 +600,17 @@ cell."
             (replace-match (Textile-new-token (concat my-close-tag "\n\n")))
           (goto-char (point-max))
           (insert (Textile-new-token my-close-tag)))))
+    ; inline tags
+    (goto-char (point-min))
+    ; FIXME: not working so well.  Will probably have to hand-carve the RE
+    (while (re-search-forward Textile-inline-tag-re nil t)
+      (let ((my-tag (cadr (assoc (match-string 1) Textile-inline-tag-list))))
+        (replace-match (concat (Textile-new-token
+                                (concat "<" my-tag ">"))
+                               (match-string 2)
+                               (Textile-new-token
+                                (concat "</" my-tag ">"))) t t))
+      (goto-char (point-min)))
     ; revert tokens
     (goto-char (point-min))
     (while (or (looking-at Textile-token-re)
@@ -609,4 +639,4 @@ cell."
         (goto-char (point-min))))
     (buffer-string)))
 
-(provide 'textile)
+(provide 'textile2)
