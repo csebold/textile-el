@@ -527,6 +527,14 @@ cell."
                 ; be careful, this could cause us to skip a token later
                 (setq end-tag-found t))
             (replace-match (Textile-new-token "</p>\n\n<p>"))))))
+    ; Fixup tables with "table." codes
+    (goto-char (point-min))
+    (while (re-search-forward "^\\(table[^.]*\\.\\)\n" nil t)
+      (replace-match (concat (match-string 1) " ")))
+    (goto-char (point-min))
+    (while (or (looking-at "|.*|")
+               (re-search-forward "^|.*|" nil t))
+      (replace-match (concat "table. " (match-string 0))))
     ; find tables, call out to table processor
     (goto-char (point-min))
     (while (or (looking-at "table[^.]*\\. ")
