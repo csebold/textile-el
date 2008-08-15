@@ -70,7 +70,7 @@
 ;
 ; See docs/bugs.txt for the bugs in this version.
 
-(defvar textile-version "Textile.el v1.99.1"
+(defvar textile-version "textile2.el v1.99.1"
   "Version number for textile.el.")
 
 (defvar Textile-tokens (make-hash-table :test 'eql)
@@ -100,6 +100,41 @@
   "Clear token hash table."
   (clrhash Textile-tokens))
 
+(defmacro Textile-set-align (my-table my-column alignment)
+  "Define table alignment for MY-TABLE, column MY-COLUMN."
+  (list 'puthash my-column alignment my-table))
+
+(defmacro Textile-get-align (my-table my-column)
+  "Get Textile table alignment for MY-TABLE, column MY-COLUMN."
+  (list 'gethash my-column my-table))
+
+(defun Textile-new-table-alignment ()
+  "Create table alignment hash table."
+  (make-hash-table :test 'eql))
+
+(defmacro Textile-clear-table-alignment (my-table)
+  "Clear table alignment hash table."
+  (list 'clrhash my-table))
+
+(defun Textile-next-name (my-table-name)
+  "Create a new table index name based on the previous one."
+  (save-match-data
+    (make-symbol
+     (Textile-string-concat
+      (append (butlast
+               (Textile-split-string
+                (symbol-name my-table-name) "-"))
+              (list
+               (format "%d" (1+ (string-to-int
+                                 (car (last (Textile-split-string
+                                             (symbol-name my-table-name)
+                                             "-")))))))) "-"))))
+
+(defmacro Textile-increment (my-table-name)
+  "Create a new table index based on the previous one."
+  (list 'setq my-table-name
+        (list 'Textile-next-name my-table-name)))
+
 (defvar Textile-output-to-new-buffer t
   "Should Textile output go to a new buffer?")
 
@@ -107,10 +142,14 @@
   "What is the default version of XHTML that Textile will produce?")
 
 (defvar Textile-xhtml-docstrings
-  '("XHTML 1.0 Strict" "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">"
-    "XHTML 1.0 Transitional" "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">"
-    "XHTML 1.0 Frameset" "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Frameset//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-frameset.dtd\">"
-    "XHTML 1.1" "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1//EN\" \"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd\">")
+  '("XHTML 1.0 Strict"
+    "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">"
+    "XHTML 1.0 Transitional"
+    "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">"
+    "XHTML 1.0 Frameset"
+    "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Frameset//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-frameset.dtd\">"
+    "XHTML 1.1"
+    "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1//EN\" \"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd\">")
   "Standard HTML doctypes so that a Textile document can be self-contained.")
 
 (defvar Textile-tag-re-list
@@ -160,8 +199,11 @@
   (interactive)
   (textile-region (point-min) (point-max)))
 
-(defun Textile-interpret-attributes (context-arg style-arg cite-arg)
-  "Interpret the attributes for block tags and return the actual XHTML string."
+(defun Textile-interpret-attributes (context-arg style-arg cite-arg
+                                                 &optional my-table
+                                                 my-column)
+  "Interpret the attributes for block tags and return the actual XHTML
+string."
   (save-match-data
     (let ((return-string ""))
       (if (string-match "^:" cite-arg)
@@ -212,24 +254,60 @@
               (setq right-pad (1+ right-pad))
               (forward-char 1))
              ((equal this-char ?\>)
-              ; this will change if it's in a table
-              (push "right" class)
-              (push "text-align:right" style)
+              (cond
+               ((string= context-arg "table")
+                (push "float:right" style))
+               ((or (string= context-arg "th")
+                    (string= context-arg "td"))
+                (setq align "right")
+                (if (string= context-arg "th")
+                    (Textile-set-align my-table my-column "right")))
+               (t
+                (push "right" class)
+                (push "text-align:right" style)))
               (forward-char 1))
              ((looking-at "<>")
               (push "justify" class)
               (push "text-align:justify" style)
               (forward-char 2))
              ((equal this-char ?\<)
-              (push "left" class)
-              (push "text-align:left" style)
+              (cond
+               ((string= context-arg "table")
+                (push "float:left" style))
+               ((or (string= context-arg "th")
+                    (string= context-arg "td"))
+                (setq align "left")
+                (if (string= context-arg "th")
+                    (Textile-set-align my-table my-column "left")))
+               (t
+                (push "left" class)
+                (push "text-align:left" style)))
               (forward-char 1))
              ((equal this-char ?\=)
-              (push "center" class)
-              (push "text-align:center" style)
+              (if (string= context-arg "table")
+                  (progn
+                    (push "margin-left: auto" style)
+                    (push "margin-right: auto" style))
+                (push "text-align:center" style)
+                (push "center" class))
+              (forward-char 1))
+             ((and (or (string= context-arg "tr")
+                       (string= context-arg "td")
+                       (string= context-arg "th"))
+                   (equal this-char ?^ ))
+              (setq valign "top")
+              (forward-char 1))
+             ((and (or (string= context-arg "tr")
+                       (string= context-arg "td")
+                       (string= context-arg "th"))
+                   (equal this-char ?\~))
+              (setq valign "bottom")
+              (forward-char 1))
+             (t
               (forward-char 1)))))
           (if (> left-pad 0)
-              (push (concat "padding-left:" (format "%d" left-pad) "em") style))
+              (push (concat "padding-left:" (format "%d" left-pad) "em")
+                    style))
           (if (> right-pad 0)
               (push (concat "padding-right:" (format "%d" right-pad) "em")
                     style))
@@ -243,7 +321,8 @@
               (push "float:right" style)))
           (dolist (this-variable '(style class id lang align valign
                                          colspan rowspan
-                                         textile-header textile-well-formed))
+                                         textile-header
+                                         textile-well-formed))
             (when (and (stringp (eval this-variable))
                        (string= (eval this-variable) ""))
               (set this-variable nil)))
@@ -253,17 +332,29 @@
                                           "\"")))
           (if id
               (setq return-string (concat return-string " id=\"" id "\"")))
+          (if align
+              (setq return-string (concat return-string " align=\""
+                                          align "\""))
+            (if (and my-column
+                     (string= context-arg "td")
+                     (Textile-get-align my-table my-column))
+                (setq return-string (concat return-string " align=\""
+                                            (Textile-get-align my-table
+                                                               my-column)
+                                            "\""))))
           (if style
               (setq return-string (concat return-string " style=\""
                                           (Textile-string-concat style ";")
                                           "\"")))
           (if lang
               ; don't forget to change this if running XHTML 1.1 (xml:lang)
-              (setq return-string (concat return-string " lang=\"" lang "\"")))
+              (setq return-string (concat return-string " lang=\""
+                                          lang "\"")))
           ))
       (if (and (string= context-arg "blockquote")
                (> (length cite-arg) 0))
-          (setq return-string (concat return-string " cite=\"" cite-arg "\"")))
+          (setq return-string (concat return-string " cite=\""
+                                      cite-arg "\"")))
       return-string)))
 
 (defun Textile-string-concat (my-list separator)
@@ -277,8 +368,72 @@
   "Process Textile table code in MY-STRING, return tokenized text for each
 cell."
   (with-temp-buffer
-    (insert "TABLE HERE" my-string "TABLE ENDS")
+    (insert my-string)
+    (goto-char (point-min))
+    (if (looking-at "table\\([^. ]*\\)\\. *")
+        (progn
+          (replace-match (Textile-new-token (concat "<table"
+                                                    " et_context=\"table\""
+                                                    " et_style=\""
+                                                    (match-string 1)
+                                                    "\" et_cite=\"\">\n")))
+          ; start processing rows
+          (dolist (this-row
+                   (Textile-split-string (delete-and-extract-region
+                                          (point) (point-max)) "\n"))
+            ; need to read to apply row style here
+            (insert
+             (with-temp-buffer
+               (insert this-row)
+               (goto-char (point-min))
+               (if (or (looking-at "\\([^| ]*\\) *")
+                       (re-search-forward "^\\([^| ]*\\) *" nil t))
+                   (replace-match (Textile-new-token
+                                   (concat "<tr"
+                                           " et_context=\"tr\""
+                                           " et_style=\""
+                                           (match-string 1)
+                                           "\" et_cite=\"\">"))))
+               (dolist (this-cell
+                        (Textile-split-string
+                         (delete-and-extract-region (point) (point-max))
+                         "|"))
+                ; need to read to apply cell style here
+                 (insert
+                  (with-temp-buffer
+                    (insert this-cell)
+                    (goto-char (point-min))
+                    (if (looking-at "\\([^. ]*\\.\\|\\) *\\(.+\\) *$")
+                        (let ((my-tag
+                               (if (save-match-data
+                                     (string-match "_" (match-string 1)))
+                                   "th"
+                                 "td")))
+                          (replace-match
+                           (concat
+                            (Textile-new-token
+                             (concat "<" my-tag
+                                     " et_context=\"" my-tag "\""
+                                     " et_style=\""
+                                     (match-string 1)
+                                     "\" et_cite=\"\">"))
+                            (Textile-trim (match-string 2))
+                            (Textile-new-token (concat
+                                                "</" my-tag ">"))))))
+                    (buffer-string))))
+               (buffer-string)))
+            (insert (Textile-new-token "</tr>\n")))
+          ; end table tag
+          (goto-char (point-max))
+          (insert (Textile-new-token "</table>"))))
     (buffer-string)))
+
+(defun Textile-trim (my-string)
+  "Trims extra whitespace from the front and back of MY-STRING."
+  (save-match-data
+    (if (string-match "^ *\\(.*[^ ]\\) *$" my-string)
+        (match-string 1 my-string)
+      my-string)))
 
 (defun textile-string (my-string)
   "The workhorse loop.  Take MY-STRING, dump it in a temp buffer, and
@@ -302,10 +457,12 @@ cell."
     ; blockcode processor, sticky (goes here)
     (goto-char (point-min))
     (while (or (looking-at "bc\\([^.]*\\)\\.\\.\\(:[^ ]*\\|\\) ")
-               (re-search-forward "^bc\\([^.]*\\)\\.\\.\\(:[^ ]*\\|\\) " nil t))
+               (re-search-forward "^bc\\([^.]*\\)\\.\\.\\(:[^ ]*\\|\\) "
+                                  nil t))
       (replace-match (Textile-new-token
                       (concat "<pre et_context=\"pre\" et_style=\""
-                              (match-string 1) "\" et_cite=\"" (match-string 2)
+                              (match-string 1) "\" et_cite=\""
+                              (match-string 2)
                               "\"><code>")))
       (let ((start-point (point))
             (end-point (re-search-forward
@@ -327,7 +484,8 @@ cell."
                (re-search-forward "^bc\\([^.]*\\)\\.\\(:[^ ]*\\|\\) " nil t))
       (replace-match (Textile-new-token
                       (concat "<pre et_context=\"pre\" et_style=\""
-                              (match-string 1) "\" et_cite=\"" (match-string 2)
+                              (match-string 1) "\" et_cite=\""
+                              (match-string 2)
                               "\"><code>")))
       (if (looking-at "\\(.*\\)\n\n")
           (replace-match (Textile-new-token (concat (match-string 1)
@@ -338,11 +496,12 @@ cell."
     ; footnote processor
     (goto-char (point-min))
     (while (re-search-forward "^fn\\([0-9]+\\)\\. " nil t)
-      (replace-match (Textile-new-token (concat "<p class=\"footnote\" id=\"fn"
-                                                (match-string 1)
-                                                "\"><sup>"
-                                                (match-string 1)
-                                                "</sup> ")))
+      (replace-match (Textile-new-token (concat
+                                         "<p class=\"footnote\" id=\"fn"
+                                         (match-string 1)
+                                         "\"><sup>"
+                                         (match-string 1)
+                                         "</sup> ")))
       (if (re-search-forward "\n\n" nil t)
           (replace-match (Textile-new-token "</p>\n\n"))
         (goto-char (point-max))
@@ -352,9 +511,10 @@ cell."
     (while (or (looking-at "bq\\([^.]*\\)\\.\\.\\(:[^ ]*\\|\\) ")
                (re-search-forward "bq\\([^.]*\\)\\.\\.\\(:[^ ]*\\|\\) " nil t))
       (replace-match (Textile-new-token
-                      (concat "<blockquote et_context=\"blockquote\" et_style=\""
-                              (match-string 1) "\" et_cite=\"" (match-string 2)
-                              "\"><p>")))
+                      (concat
+                       "<blockquote et_context=\"blockquote\" et_style=\""
+                       (match-string 1) "\" et_cite=\"" (match-string 2)
+                       "\"><p>")))
       (let ((end-tag-found nil))
         (while (and (not end-tag-found)
                     (re-search-forward "\n\n" nil t))
@@ -370,26 +530,28 @@ cell."
     ; find tables, call out to table processor
     (goto-char (point-min))
     (while (or (looking-at "table[^.]*\\. ")
-               (re-search-forward "^table[^.]*\\. " nil t))
+               (re-search-forward "^table[^.]*\\. " nil t)
+               (re-search-forward "^table[^.]*\\.$" nil t))
       (let ((first-part (match-string 0))
-            (second-part ""))
-        ; this isn't working to find the end of the table, FIXME
+            (second-part "")
+            (start-point (point)))
         (replace-match "")
-        (save-match-data
-          (if (looking-at "\\(.*\\)\n\n")
-              (progn
-                (setq second-part (match-string 1))
-                (replace-match "\n\n"))
-            (setq second-part (delete-and-extract-region
-                               (point) (point-max)))))
-        (insert (Textile-table-process (concat first-part second-part)))))
+        (setq start-point (point))
+        (if (re-search-forward "\n\n" nil t)
+              (re-search-backward "\n\n" nil t)
+          (goto-char (point-max)))
+        (insert (Textile-table-process (concat first-part
+                                               (delete-and-extract-region
+                                                start-point (point)))))))
     ; go through Textile tags
     (goto-char (point-min))
     (while (or (looking-at (concat Textile-tags
                                    "\\([^.]*\\)\\.\\(:[^ ]*\\|\\) "))
-               (re-search-forward (concat "^" "\\(?:" Textile-token-re "\\|\\)"
+               (re-search-forward (concat "^" "\\(?:" Textile-token-re
+                                          "\\|\\)"
                                           Textile-tags
-                                          "\\([^.]*\\)\\.\\(:[^ ]*\\|\\) ") nil t))
+                                          "\\([^.]*\\)\\.\\(:[^ ]*\\|\\) ")
+                                  nil t))
       (let* ((my-tags (cdr (assoc (match-string 1) Textile-tag-re-list)))
              (my-1st-tag (car my-tags))
              (my-2nd-tag (cadr my-tags))
@@ -418,14 +580,25 @@ cell."
       (replace-match (Textile-get-token (match-string 0)) t t))
     ; interpret attributes
     (goto-char (point-min))
-    (while (re-search-forward (concat " et_context=\"\\(.*\\)\""
-                                      " et_style=\"\\([^\"]*\\)\""
-                                      " et_cite=\"\\(.*\\)\"")
-                              nil t)
-      (replace-match (Textile-interpret-attributes (match-string 1)
-                                                   (match-string 2)
-                                                   (match-string 3)))
-      (goto-char (point-min)))
+    (let ((my-table (Textile-new-table-alignment))
+          (my-table-col 0))
+      (while (re-search-forward (concat " et_context=\"\\([^\"]*\\)\""
+                                        " et_style=\"\\([^\"]*\\)\""
+                                        " et_cite=\"\\([^\"]*\\)\"")
+                                nil t)
+        (if (string= (match-string 1) "table")
+            (Textile-clear-table-alignment my-table))
+        (if (string= (match-string 1) "tr")
+            (setq my-table-col 0))
+        (if (or (string= (match-string 1) "th")
+                (string= (match-string 1) "td"))
+            (setq my-table-col (1+ my-table-col)))
+        (replace-match (Textile-interpret-attributes (match-string 1)
+                                                     (match-string 2)
+                                                     (match-string 3)
+                                                     my-table
+                                                     my-table-col))
+        (goto-char (point-min))))
     (buffer-string)))
 
 (provide 'textile)
