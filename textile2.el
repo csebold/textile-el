@@ -77,20 +77,20 @@
   "Token hash table; this is currently a global, which is probably unwise.")
 
 (defvar Textile-token-re
-  "emacs_textile_token_[0-9]+_x"
+  "\000e[0-9]+x\000"
   "Regular expression for finding a token.")
 
 (defun Textile-new-token (my-string)
   "Add MY-STRING to token hash table; returns string tag which replaces it."
   (let ((current-index (hash-table-count Textile-tokens)))
     (puthash current-index my-string Textile-tokens)
-    (format "emacs_textile_token_%d_x" current-index)))
+    (format "\000e%dx\000" current-index)))
 
 (defun Textile-get-token (my-index)
   "Get Textile token by hash index; does not change token table."
   (if (stringp my-index)
       (save-match-data
-        (if (string-match "^emacs_textile_token_\\([0-9]+\\)_x$"
+        (if (string-match "^\000e\\([0-9]+\\)x\000$"
                           my-index)
             (setq my-index (string-to-int (match-string 1 my-index)))
           (setq my-index (string-to-int my-index)))))
@@ -180,6 +180,27 @@
   (concat "\\(^\\|\\W\\)=="
           "\\([^\000]+?\\)==\\($\\|\\W\\)")
   "This should only match inline escaped code.")
+
+(defvar Textile-alias-list
+  nil
+  "FIXME: placeholder")
+
+(defun Textile-alias-to-url (lookup alias-list)
+  "FIXME: placeholder"
+  nil)
+
+(defun Textile-process-ampersand (my-string)
+  "Convert ampersands to &amp; as necessary."
+  (save-match-data
+    (with-temp-buffer
+      (insert my-string)
+      (goto-char (point-min))
+      (save-excursion
+        (while (re-search-forward "&" nil t)
+          (if (looking-at "#?\\w+;")
+              (re-search-forward "#?\\w+;" nil t)
+            (replace-match "&amp;"))))
+      (buffer-string))))
 
 (defun textile-header (title &optional html-version charset &rest headers)
   "Insert HTML header so that Textile documents can be self-contained."
@@ -373,7 +394,6 @@ string."
                    (equal this-char ?\~))
               (setq valign "bottom")
               (forward-char 1))
-             ; FIXME: colspan not working yet
              ((and (or (string= context-arg "td")
                        (string= context-arg "th"))
                    (looking-at "[\\]\\([0-9]+\\)"))
@@ -530,9 +550,13 @@ cell."
   (Textile-clear-tokens)
   (with-temp-buffer
     (insert my-string)
-    (goto-char (point-min))
     ; begin tokenizing
+    ; First we need to remove the \000 strings
+    (goto-char (point-min))
+    (while (re-search-forward "\000" nil t)
+      (replace-match (Textile-new-token (match-string 0))))
     ; first provide for BC's unit test; may remove this later
+    (goto-char (point-min))
     (while (re-search-forward "^==>" nil t)
       (let ((start-pos (save-excursion
                          (beginning-of-line)
@@ -684,6 +708,41 @@ cell."
         (insert (Textile-table-process (concat first-part
                                                (delete-and-extract-region
                                                 start-point (point)))))))
+    ; links
+    (goto-char (point-min))
+    (while (or (looking-at "\"\\([^\"]*?\\)\":\\([^ ]*?\\)\\(&#[0-9]+;\\)")
+               (re-search-forward "\"\\([^\"]*?\\)\":\\([^ ]*?\\)\\(&#[0-9]+;\\)"
+                                  nil t)
+               (looking-at "\"\\([^\"]*?\\)\":\\([^ ]*?\\)\\([],.;:\"']?\\(?:\000\\| \\|$\\)\\)")
+               (re-search-forward "\"\\([^\"]*?\\)\":\\([^ ]*?\\)\\([],.;:\"']?\\(?:\000\\| \\|$\\)\\)"
+                                  nil t))
+      (let* ((text (match-string 1))
+             (url (match-string 2))
+             (delimiter (match-string 3))
+             (title "")
+             (alias-info (Textile-alias-to-url url Textile-alias-list)))
+        (if alias-info
+            (progn
+              (setq title (car alias-info))
+              (setq url (cadr alias-info)))
+          (save-match-data
+            (if (string-match "\\(.*\\) +(\\(.*\\))" text)
+                (progn
+                  (setq title (match-string 2 text))
+                  (setq text (match-string 1 text))))))
+        (if (string= title "")
+            (setq title nil))
+        (replace-match (concat
+                        (Textile-new-token
+                         (concat "<a href=\""
+                                 (Textile-process-ampersand url)
+                                 "\""
+                                 (if title
+                                     (concat " title=\"" title
+                                             "\""))
+                                 ">"))
+                        text
+                        (Textile-new-token "</a>") delimiter))))
     ; go through Textile tags
     (goto-char (point-min))
     (while (or (looking-at (concat Textile-tags
@@ -731,7 +790,8 @@ cell."
     (goto-char (point-min))
     (while (or (looking-at Textile-token-re)
                (re-search-forward Textile-token-re nil t))
-      (replace-match (Textile-get-token (match-string 0)) t t))
+      (replace-match (Textile-get-token (match-string 0)) t t)
+      (goto-char (point-min)))
     ; interpret attributes
     (goto-char (point-min))
     (let ((my-table (Textile-new-table-alignment))
