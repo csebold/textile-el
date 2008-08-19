@@ -753,6 +753,27 @@ cell."
           (insert (Textile-table-process (concat first-part
                                                  (delete-and-extract-region
                                                   start-point (point)))))))
+      ; acronyms
+      (setq case-fold-search nil)
+      (goto-char (point-min))
+      (while (or (looking-at "\\<\\([A-Z]\\{3,\\}\\|[0-9][A-Z]\\{2,\\}\\|[A-Z][0-9A-Z]\\{2,\\}\\)\\((\\(.*?\\))\\|\\)")
+                 (re-search-forward
+                  "\\<\\([A-Z]\\{3,\\}\\|[0-9][A-Z]\\{2,\\}\\|[A-Z][0-9A-Z]\\{2,\\}\\)\\((\\(.*?\\))\\|\\)"
+                  nil t))
+        (if (match-string 3)
+            (replace-match
+             (Textile-new-token
+              (concat "<acronym title=\""
+                      (match-string 3)
+                      "\">"
+                      (match-string 1)
+                      "</acronym>")))
+          (replace-match
+           (concat
+            (Textile-new-token "<span class=\"caps\">")
+            (match-string 1)
+            (Textile-new-token "</span>")))))
+      (setq case-fold-search t)
     ; links
       (goto-char (point-min))
       (while (or (looking-at "\"\\([^\"]*?\\)\":\\([^ ]*?\\)\\(&#[0-9]+;\\)")
