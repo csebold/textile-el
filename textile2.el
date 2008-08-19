@@ -176,6 +176,61 @@
           "\\([^\000]+?\\)\\(\\1\\)\\(?:$\\|\\W\\)")
   "This will match any inline tag and what has been tagged.")
 
+(defvar Textile-escape-tag-re
+  (concat "\\(^\\|\\W\\)=="
+          "\\([^\000]+?\\)==\\($\\|\\W\\)")
+  "This should only match inline escaped code.")
+
+(defun textile-header (title &optional html-version charset &rest headers)
+  "Insert HTML header so that Textile documents can be self-contained."
+  (let ((my-docstrings Textile-xhtml-docstrings)
+        (output ""))
+    (unless html-version
+      (setq html-version Textile-xhtml-version-default))
+    (if (member html-version Textile-xhtml-docstrings)
+        (setq textile-xhtml-version html-version)
+      (setq textile-xhtml-version Textile-xhtml-version-default)
+      (setq html-version Textile-xhtml-version-default))
+    (while my-docstrings
+      (if (string= html-version (car my-docstrings))
+          (setq output (cadr my-docstrings)))
+      (setq my-docstrings (cddr my-docstrings)))
+    (setq output (concat output "\n\n"
+                         "<html xmlns=\"http://www.w3.org/1999/xhtml\">\n"
+                         "<head>\n"
+                         "<meta http-equiv=\"Content-Type\" "
+                         "content=\"text/html; charset="))
+    (unless charset
+      (setq charset "iso-8859-1"))
+    (setq output (concat output charset "\" />\n"))
+    (setq output (concat output "<meta name=\"generator\" content=\""
+                         textile-version ", " (car (Textile-split-string
+                                                    (emacs-version) "\n"))
+                         "\" />\n"))
+    (while headers
+      (setq output (concat output (car headers) "\n"))
+      (setq headers (cdr headers)))
+    (setq output (concat output "<title>" title "</title>\n"))
+    (setq output (concat output "</head>\n<body>"))
+    output))
+
+(defun textile-footer (&optional &rest footers)
+  "Insert HTML footer so that Textile documents can be self-contained."
+  (let ((output ""))
+    (while footers
+      (setq output (concat output (car footers) "\n"))
+      (setq footers (cdr footers)))
+    (setq output (concat output "</body>\n</html>"))
+    output))
+
+(defun textile-version (&optional arg)
+  "Version information for this version of textile.el.
+If ARG, insert string at point."
+  (interactive "P")
+  (if arg
+      textile-version
+    (message textile-version)))
+
 (defun textile-region (start end)
   "Call textile-code-to-blocks on region from point to mark."
   (interactive "r")
@@ -318,6 +373,17 @@ string."
                    (equal this-char ?\~))
               (setq valign "bottom")
               (forward-char 1))
+             ; FIXME: colspan not working yet
+             ((and (or (string= context-arg "td")
+                       (string= context-arg "th"))
+                   (looking-at "[\\]\\([0-9]+\\)"))
+              (setq colspan (match-string 1))
+              (re-search-forward "[\\]\\([0-9]+\\)" nil t))
+             ((and (or (string= context-arg "td")
+                       (string= context-arg "th"))
+                   (looking-at "/\\([0-9]+\\)"))
+              (setq rowspan (match-string 1))
+              (re-search-forward "/\\([0-9]+\\)" nil t))
              (t
               (forward-char 1)))))
           (if (> left-pad 0)
@@ -385,7 +451,7 @@ cell."
   (with-temp-buffer
     (insert my-string)
     (goto-char (point-min))
-    (if (looking-at "table\\([^. ]*\\)\\. *")
+    (if (looking-at "table\\([^|]*\\)\\. *")
         (progn
           (replace-match (Textile-new-token (concat "<table"
                                                     " et_context=\"table\""
@@ -401,8 +467,8 @@ cell."
              (with-temp-buffer
                (insert this-row)
                (goto-char (point-min))
-               (if (or (looking-at "\\([^| ]*\\) *")
-                       (re-search-forward "^\\([^| ]*\\) *" nil t))
+               (if (or (looking-at " *\\([^| ]*\\) *")
+                       (re-search-forward "^ *\\([^| ]*\\) *" nil t))
                    (replace-match (Textile-new-token
                                    (concat "<tr"
                                            " et_context=\"tr\""
@@ -418,10 +484,12 @@ cell."
                   (with-temp-buffer
                     (insert this-cell)
                     (goto-char (point-min))
-                    (if (looking-at "\\([^. ]*\\.\\|\\) *\\(.+\\) *$")
+                    (if (looking-at "\\(\\([^. ]*\\)\\. \\|\\) *\\(.+\\) *$")
                         (let ((my-tag
-                               (if (save-match-data
-                                     (string-match "_" (match-string 1)))
+                               (if (and
+                                    (match-string 2)
+                                    (save-match-data
+                                      (string-match "_" (match-string 2))))
                                    "th"
                                  "td")))
                           (replace-match
@@ -430,9 +498,9 @@ cell."
                              (concat "<" my-tag
                                      " et_context=\"" my-tag "\""
                                      " et_style=\""
-                                     (match-string 1)
+                                     (match-string 2)
                                      "\" et_cite=\"\">"))
-                            (Textile-trim (match-string 2))
+                            (Textile-trim (match-string 3))
                             (Textile-new-token (concat
                                                 "</" my-tag ">"))))))
                     (buffer-string))))
@@ -473,6 +541,46 @@ cell."
     ; BC one-line comments
     (while (re-search-forward "^//.*$" nil t)
       (replace-match (Textile-new-token (match-string 0))))
+    ; inline elisp
+    (goto-char (point-min))
+    (while (re-search-forward "#\\[(\\(([\000-\177]+?)\\))\\]#" nil t)
+      (replace-match
+       ; interesting question: tokenize elisp output, or not?
+       ; more powerful (and more bug-capable) if we don't;
+       ; then we can generate Textile code, not just escaped code
+;       (Textile-new-token
+        (if noninteractive
+            "elisp evaluation not available"
+          (let ((my-response
+                 (save-match-data
+                   (eval (car (read-from-string
+                               (match-string 1)))))))
+            (if (stringp my-response)
+                my-response
+              (format "%S" my-response))))
+;        )
+       t nil nil 0))
+    ; double-equals escapes
+    (goto-char (point-min))
+    (while (or (looking-at "^==\n")
+               (re-search-forward "^==\n" nil t))
+      (replace-match "")
+      (let ((start-pos (point))
+            (end-pos (if (re-search-forward "^==\n" nil t)
+                         (progn
+                           (replace-match "")
+                           (point))
+                       (point-max))))
+        (insert (Textile-new-token (delete-and-extract-region
+                                    start-pos end-pos)))))
+    ; double-equals escapes inline
+    (goto-char (point-min))
+    (while (or (looking-at Textile-escape-tag-re)
+               (re-search-forward Textile-escape-tag-re nil t))
+      (replace-match (Textile-new-token (concat
+                                         (match-string 1)
+                                         (match-string 2)
+                                         (match-string 3)))))
     ; blockcode processor, sticky
     (goto-char (point-min))
     (while (or (looking-at "bc\\([^.]*\\)\\.\\.\\(:[^ ]*\\|\\) ")
@@ -551,8 +659,8 @@ cell."
     (while (re-search-forward "^\\(table[^.]*\\.\\)\n" nil t)
       (replace-match (concat (match-string 1) " ")))
     (goto-char (point-min))
-    (while (or (looking-at "|.*|")
-               (re-search-forward "^|.*|" nil t))
+    (while (or (looking-at "\n\n|.*|")
+               (re-search-forward "\n\n|.*|" nil t))
       (replace-match (concat "table. " (match-string 0))))
     ; find tables, call out to table processor
     (goto-char (point-min))
