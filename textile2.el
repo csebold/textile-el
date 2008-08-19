@@ -227,6 +227,10 @@ a list whose car is the title and cadr is the URL.")
   "FIXME: placeholder"
   nil)
 
+(defvar Textile-list-tag-regexp
+  "^\\(([^ ]+?)\\|\\)\\([*#]+\\)\\([^ ]*\\) "
+  "All list block tags must match this.")
+
 (defun Textile-process-ampersand (my-string)
   "Convert ampersands to &amp; as necessary."
   (save-match-data
@@ -511,6 +515,82 @@ string."
       (concat (car my-list) separator (Textile-string-concat (cdr my-list)
                                                              separator))
     (car my-list)))
+
+(defun Textile-list-level (textile-list-tag)
+  "Return number corresponding to level of this list."
+  (save-match-data
+    (if (string-match Textile-list-tag-regexp textile-list-tag)
+        (length (match-string 2 textile-list-tag))
+      nil)))
+
+(defun Textile-list-context (textile-list-tag)
+  "Return symbol corresponding to context (ol, ul) of this list."
+  (save-match-data
+    (if (string-match Textile-list-tag-regexp textile-list-tag)
+        (let* ((this-tag (match-string 2 textile-list-tag))
+               (final-tag (string (elt this-tag
+                                       (- (length this-tag) 1)))))
+          (cond
+           ((string= final-tag "#")
+            "ol")
+           ((string= final-tag "*")
+            "ul")
+           (t
+            nil))))))
+
+(defun Textile-list-process (my-string)
+  "Process Textile list code in MY-STRING, return tokenized text."
+  (let ((list-level 0)
+        (list-context nil)
+        (current-string ""))
+    (with-temp-buffer
+      (insert my-string)
+      (goto-char (point-min))
+      (while (re-search-forward Textile-list-tag-regexp nil t)
+        (setq current-string "")
+        (cond
+         ((> (Textile-list-level (match-string 0)) list-level)
+          (setq current-string
+                (concat current-string
+                        (Textile-new-token
+                         (concat "<"
+                                 (Textile-list-context (match-string 0))
+                                 " et_context=\""
+                                 (Textile-list-context (match-string 0))
+                                 "\" et_style=\""
+                                 (match-string 1)
+                                 "\" et_cite=\"\">\n"))))
+          (setq list-level (Textile-list-level (match-string 0)))
+          (setq list-context (Textile-list-context (match-string 0))))
+         ((< (Textile-list-level (match-string 0)) list-level)
+          (setq current-string
+                (concat current-string
+                        (Textile-new-token
+                         (concat "</" list-context ">\n"))))
+          (setq list-context (Textile-list-context (match-string 0)))
+          (setq list-level (Textile-list-level (match-string 0))))
+         ((not (string= list-context
+                        (Textile-list-context (match-string 0))))
+          (setq current-string
+                (concat current-string
+                        (Textile-new-token
+                         (concat "</" list-context ">\n"))
+                        (Textile-new-token
+                         (concat "<"
+                                 (Textile-list-context (match-string 0))
+                                 " et_context=\""
+                                 (Textile-list-context (match-string 0))
+                                 "\" et_style=\""
+                                 (match-string 1)
+                                 "\" et_cite=\"\">\n"))))))
+        (setq current-string
+              (concat current-string
+                      (Textile-new-token
+                       (concat "<li et_context=\"li\" et_style=\""
+                               (match-string 2)
+                               "\" et_cite=\"\">"))))
+        (replace-match current-string))
+      (buffer-string))))
 
 (defun Textile-table-process (my-string)
   "Process Textile table code in MY-STRING, return tokenized text for each
@@ -839,6 +919,22 @@ cell."
               (replace-match (Textile-new-token (concat my-close-tag "\n\n")))
             (goto-char (point-max))
             (insert (Textile-new-token my-close-tag)))))
+      ; lists
+      (goto-char (point-min))
+      (while (or (looking-at Textile-list-tag-regexp)
+                 (re-search-forward Textile-list-tag-regexp
+                                    nil t))
+        (let ((first-part (match-string 0))
+              (second-part "")
+              (start-point (point)))
+          (replace-match "")
+          (setq start-point (point))
+          (if (re-search-forward "\n\n" nil t)
+              (re-search-backward "\n\n" nil t)
+            (goto-char (point-max)))
+          (insert (Textile-list-process (concat first-part
+                                                (delete-and-extract-region
+                                                 start-point (point)))))))
     ; inline footnotes
       (goto-char (point-min))
       (while (or (looking-at "\\[\\([0-9]+\\)\\]")
