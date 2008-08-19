@@ -1,7 +1,7 @@
 ; textile2.el
 ; $Id$
 
-; by Charles Sebold <csebold@gmail.com>
+; by Charles Sebold <csebold+textile@gmail.com>
 
 ;;; Copyright: (C) 2004, 2008 Charles Sebold
 ;; 
@@ -65,8 +65,8 @@
 ;
 ; Do NOT send bug reports on textile.el to Dean Allen or Brad Choate;
 ; they had nothing to do with the Emacs implementation.  Send bug
-; reports to csebold@gmail.com, preferably along with sample text and
-; some description of what you expected to see.
+; reports to csebold@+textilegmail.com, preferably along with sample
+; text and some description of what you expected to see.
 ;
 ; See docs/bugs.txt for the bugs in this version.
 
@@ -431,6 +431,12 @@ string."
               ; don't forget to change this if running XHTML 1.1 (xml:lang)
               (setq return-string (concat return-string " lang=\""
                                           lang "\"")))
+          (if colspan
+              (setq return-string (concat return-string " colspan=\""
+                                          colspan "\"")))
+          (if rowspan
+              (setq return-string (concat return-string " rowspan=\""
+                                          rowspan "\"")))
           ))
       (if (and (string= context-arg "blockquote")
                (> (length cite-arg) 0))
