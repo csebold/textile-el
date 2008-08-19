@@ -65,7 +65,7 @@
 ;
 ; Do NOT send bug reports on textile.el to Dean Allen or Brad Choate;
 ; they had nothing to do with the Emacs implementation.  Send bug
-; reports to csebold@+textilegmail.com, preferably along with sample
+; reports to csebold+textile@gmail.com, preferably along with sample
 ; text and some description of what you expected to see.
 ;
 ; See docs/bugs.txt for the bugs in this version.
@@ -141,6 +141,10 @@
 (defvar Textile-xhtml-version-default "XHTML 1.0 Transitional"
   "What is the default version of XHTML that Textile will produce?")
 
+(defvar Textile-xhtml-version
+  Textile-xhtml-version-default
+  "Set this to the default unless it's already been set.")
+
 (defvar Textile-xhtml-docstrings
   '("XHTML 1.0 Strict"
     "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">"
@@ -209,8 +213,8 @@
     (unless html-version
       (setq html-version Textile-xhtml-version-default))
     (if (member html-version Textile-xhtml-docstrings)
-        (setq textile-xhtml-version html-version)
-      (setq textile-xhtml-version Textile-xhtml-version-default)
+        (setq Textile-xhtml-version html-version)
+      (setq Textile-xhtml-version Textile-xhtml-version-default)
       (setq html-version Textile-xhtml-version-default))
     (while my-docstrings
       (if (string= html-version (car my-docstrings))
@@ -448,8 +452,11 @@ string."
                                           (Textile-string-concat style ";")
                                           "\"")))
           (if lang
-              ; don't forget to change this if running XHTML 1.1 (xml:lang)
-              (setq return-string (concat return-string " lang=\""
+              (setq return-string (concat return-string
+                                          (if (string= Textile-xhtml-version
+                                                       "XHTML 1.1")
+                                              " xml:lang=\""
+                                            " lang=\"")
                                           lang "\"")))
           (if colspan
               (setq return-string (concat return-string " colspan=\""
@@ -652,7 +659,8 @@ cell."
                                             "</code></pre>\n\n"))))))
     ; footnote processor
     (goto-char (point-min))
-    (while (re-search-forward "^fn\\([0-9]+\\)\\. " nil t)
+    (while (or (looking-at "fn\\([0-9]+\\)\\. ")
+               (re-search-forward "^fn\\([0-9]+\\)\\. " nil t))
       (replace-match (Textile-new-token (concat
                                          "<p class=\"footnote\" id=\"fn"
                                          (match-string 1)
@@ -773,10 +781,22 @@ cell."
             (replace-match (Textile-new-token (concat my-close-tag "\n\n")))
           (goto-char (point-max))
           (insert (Textile-new-token my-close-tag)))))
+    ; inline footnotes
+    (goto-char (point-min))
+    (while (or (looking-at "\\[\\([0-9]+\\)\\]")
+               (re-search-forward "\\[\\([0-9]+\\)\\]" nil t))
+      (replace-match (Textile-new-token
+                      (concat "<sup class=\"footnote\">"
+                              "<a href=\"#fn"
+                              (match-string 1)
+                              "\">"
+                              (match-string 1)
+                              "</a></sup>"))))
     ; inline tags
     (goto-char (point-min))
     ; FIXME: not working so well.  Will probably have to hand-carve the RE
-    (while (re-search-forward Textile-inline-tag-re nil t)
+    (while (or (looking-at Textile-inline-tag-re)
+               (re-search-forward Textile-inline-tag-re nil t))
       (let ((my-tag (cadr (assoc (match-string 1) Textile-inline-tag-list))))
         (replace-match (concat (Textile-new-token
                                 (concat "<" my-tag ">"))
@@ -786,6 +806,7 @@ cell."
       (goto-char (point-min)))
     ; OK, any block that stands alone is a paragraph by now.
     ; So, figure out how to mark standalone paragraphs.
+    ; FIXME: this is where the unmarked p tags go
     ; revert tokens
     (goto-char (point-min))
     (while (or (looking-at Textile-token-re)
