@@ -540,8 +540,7 @@ string."
 
 (defun Textile-list-process (my-string)
   "Process Textile list code in MY-STRING, return tokenized text."
-  (let ((list-level 0)
-        (list-context nil)
+  (let ((list-level nil)
         (current-string ""))
     (with-temp-buffer
       (insert my-string)
@@ -549,7 +548,8 @@ string."
       (while (re-search-forward Textile-list-tag-regexp nil t)
         (setq current-string "")
         (cond
-         ((> (Textile-list-level (match-string 0)) list-level)
+         ((> (Textile-list-level (match-string 0))
+             (length list-level))
           (setq current-string
                 (concat current-string
                         (Textile-new-token
@@ -560,21 +560,24 @@ string."
                                  "\" et_style=\""
                                  (match-string 1)
                                  "\" et_cite=\"\">\n"))))
-          (setq list-level (Textile-list-level (match-string 0)))
-          (setq list-context (Textile-list-context (match-string 0))))
-         ((< (Textile-list-level (match-string 0)) list-level)
+          (push (Textile-list-context (match-string 0)) list-level))
+         ((< (Textile-list-level (match-string 0))
+             (length list-level))
+          ; not right; should check to see that context hasn't changed
+          ; from ordered to unordered or vice versa
+          ; could do a while loop to unwind the closing tags from
+          ; list-level
           (setq current-string
                 (concat current-string
                         (Textile-new-token
-                         (concat "</" list-context ">\n"))))
-          (setq list-context (Textile-list-context (match-string 0)))
-          (setq list-level (Textile-list-level (match-string 0))))
-         ((not (string= list-context
+                         (concat "</" (car list-level) ">\n"))))
+          (setq list-level (cdr list-level)))
+         ((not (string= (car list-level)
                         (Textile-list-context (match-string 0))))
           (setq current-string
                 (concat current-string
                         (Textile-new-token
-                         (concat "</" list-context ">\n"))
+                         (concat "</" (car list-level) ">\n"))
                         (Textile-new-token
                          (concat "<"
                                  (Textile-list-context (match-string 0))
@@ -582,7 +585,8 @@ string."
                                  (Textile-list-context (match-string 0))
                                  "\" et_style=\""
                                  (match-string 1)
-                                 "\" et_cite=\"\">\n"))))))
+                                 "\" et_cite=\"\">\n"))))
+          (push (Textile-list-context (match-string 0)) list-level)))
         (setq current-string
               (concat current-string
                       (Textile-new-token
