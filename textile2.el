@@ -526,17 +526,32 @@ string."
 (defun Textile-list-context (textile-list-tag)
   "Return symbol corresponding to context (ol, ul) of this list."
   (save-match-data
-    (if (string-match Textile-list-tag-regexp textile-list-tag)
-        (let* ((this-tag (match-string 2 textile-list-tag))
-               (final-tag (string (elt this-tag
-                                       (- (length this-tag) 1)))))
-          (cond
-           ((string= final-tag "#")
-            "ol")
-           ((string= final-tag "*")
-            "ul")
-           (t
-            nil))))))
+    (let ((my-list nil))
+      (if (string-match Textile-list-tag-regexp textile-list-tag)
+          (dolist (this-tag (Textile-split-string
+                             (match-string 2 textile-list-tag)
+                             ""))
+            ; ARRGH FIXME FIXME FIXME
+            ; I don't understand what's happening to this list
+            (cond
+             ((string= this-tag "#")
+              (setq my-list (append (list "ol") my-list)))
+             ((string= this-tag "*")
+              (setq my-list (append (list "ul") my-list)))))
+      my-list))))
+
+(defun Textile-list-difference (small-list large-list)
+  (if (equal small-list large-list)
+      nil
+    (if (= (length small-list) (length large-list))
+        (cons (pop large-list)
+              (Textile-list-difference
+               (cdr small-list)
+               large-list))
+      (cons (pop large-list)
+            (Textile-list-difference
+             small-list
+             large-list)))))
 
 (defun Textile-list-process (my-string)
   "Process Textile list code in MY-STRING, return tokenized text."
@@ -547,53 +562,62 @@ string."
       (goto-char (point-min))
       (while (re-search-forward Textile-list-tag-regexp nil t)
         (setq current-string "")
-        (cond
-         ((> (Textile-list-level (match-string 0))
-             (length list-level))
+        (let* ((tag-string (match-string 0))
+               (list-style (match-string 1))
+               (item-style (match-string 2))
+               (current-list-context (Textile-list-context tag-string)))
+          (if (> (length current-list-context)
+                 (length list-level))
+              (progn
+                (setq current-string
+                      (concat current-string
+                              (Textile-new-token
+                               (concat "<"
+                                       (car current-list-context)
+                                       " et_context=\""
+                                       (car current-list-context)
+                                       "\" et_style=\""
+                                       list-style
+                                       "\" et_cite=\"\">\n"))))
+                (push (car current-list-context) list-level)))
           (setq current-string
                 (concat current-string
                         (Textile-new-token
-                         (concat "<"
-                                 (Textile-list-context (match-string 0))
-                                 " et_context=\""
-                                 (Textile-list-context (match-string 0))
-                                 "\" et_style=\""
-                                 (match-string 1)
-                                 "\" et_cite=\"\">\n"))))
-          (push (Textile-list-context (match-string 0)) list-level))
-         ((< (Textile-list-level (match-string 0))
-             (length list-level))
-          ; not right; should check to see that context hasn't changed
-          ; from ordered to unordered or vice versa
-          ; could do a while loop to unwind the closing tags from
-          ; list-level
-          (setq current-string
-                (concat current-string
-                        (Textile-new-token
-                         (concat "</" (car list-level) ">\n"))))
-          (setq list-level (cdr list-level)))
-         ((not (string= (car list-level)
-                        (Textile-list-context (match-string 0))))
-          (setq current-string
-                (concat current-string
-                        (Textile-new-token
-                         (concat "</" (car list-level) ">\n"))
-                        (Textile-new-token
-                         (concat "<"
-                                 (Textile-list-context (match-string 0))
-                                 " et_context=\""
-                                 (Textile-list-context (match-string 0))
-                                 "\" et_style=\""
-                                 (match-string 1)
-                                 "\" et_cite=\"\">\n"))))
-          (push (Textile-list-context (match-string 0)) list-level)))
+                         (concat "<li et_context=\"li\" et_style=\""
+                                 item-style
+                                 "\" et_cite=\"\">"))))
+          (if (not (string= (car list-level)
+                            (car current-list-context)))
+              (progn
+                (setq current-string
+                      (concat current-string
+                              (Textile-new-token
+                               (concat "</" (car list-level) ">\n"))
+                              (Textile-new-token
+                               (concat "<"
+                                       (car current-list-context)
+                                       " et_context=\""
+                                       (car current-list-context)
+                                       "\" et_style=\""
+                                       list-style
+                                       "\" et_cite=\"\">\n"))))
+                (push (car current-list-context) list-level))
+            (if (< (length current-list-context)
+                   (length list-level))
+                (progn
+                  (dolist (close-tag (Textile-list-difference list-level
+                                                              current-list-context))
+                    (setq current-string
+                          (concat current-string
+                                  (Textile-new-token
+                                   (concat "</" close-tag ">\n"))))
+                    (pop list-level)))))))
+      (while list-level
         (setq current-string
               (concat current-string
                       (Textile-new-token
-                       (concat "<li et_context=\"li\" et_style=\""
-                               (match-string 2)
-                               "\" et_cite=\"\">"))))
-        (replace-match current-string))
+                       (concat "</" (pop list-level) ">\n")))))
+      (replace-match current-string)
       (buffer-string))))
 
 (defun Textile-table-process (my-string)
