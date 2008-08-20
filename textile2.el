@@ -526,7 +526,7 @@ string."
 (defun Textile-list-context (textile-list-tag)
   "Return list of HTML tags corresponding to list context (ol, ul)."
   (let ((my-list nil))
-    (dolist (this-tag (delq "" (split-string textile-list-tag "")))
+    (dolist (this-tag (delete "" (split-string textile-list-tag "")))
       (cond
        ((string= this-tag "#")
         (push "ol" my-list))
