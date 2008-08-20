@@ -525,14 +525,33 @@ string."
 
 (defun Textile-list-context (textile-list-tag)
   "Return list of HTML tags corresponding to list context (ol, ul)."
-  (let ((my-list nil))
-    (dolist (this-tag (delete "" (split-string textile-list-tag "")))
+  (let ((my-list nil)
+        (string-list (delete "" (split-string textile-list-tag ""))))
+    (while string-list
       (cond
-       ((string= this-tag "#")
-        (push "ol" my-list))
-       ((string= this-tag "*")
-        (push "ul" my-list))))
+       ((string= (car string-list) "#")
+        (setq my-list (append (list "ol") (copy-tree my-list))))
+       ((string= (car string-list) "*")
+        (setq my-list (append (list "ol") (copy-tree my-list)))))
+      (pop string-list))
     my-list))
+
+; FIXME These functions are creating circular lists!  Why?
+(defvar Textile-list-tags
+  '(("#" "ol") ("*" "ul")))
+
+(defun Textile-list-context (textile-list-tag)
+  "Return list of HTML tags corresponding to list context (ol, ul)."
+  (let ((my-list (delete " " (delete "" (split-string textile-list-tag "")))))
+    (mapcar (lambda (x) (cadr (assoc x Textile-list-tags))) my-list)))
+
+;    (dolist (this-tag (delete "" (split-string textile-list-tag "")))
+;      (cond
+;       ((string= this-tag "#")
+;        (push "ol" my-list))
+;       ((string= this-tag "*")
+;        (push "ul" my-list))))
+;    my-list))
 
 (defun Textile-list-difference (small-list large-list)
   (if (equal small-list large-list)
