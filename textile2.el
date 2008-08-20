@@ -524,21 +524,15 @@ string."
       nil)))
 
 (defun Textile-list-context (textile-list-tag)
-  "Return symbol corresponding to context (ol, ul) of this list."
-  (save-match-data
-    (let ((my-list nil))
-      (if (string-match Textile-list-tag-regexp textile-list-tag)
-          (dolist (this-tag (Textile-split-string
-                             (match-string 2 textile-list-tag)
-                             ""))
-            ; ARRGH FIXME FIXME FIXME
-            ; I don't understand what's happening to this list
-            (cond
-             ((string= this-tag "#")
-              (setq my-list (append (list "ol") my-list)))
-             ((string= this-tag "*")
-              (setq my-list (append (list "ul") my-list)))))
-      my-list))))
+  "Return list of HTML tags corresponding to list context (ol, ul)."
+  (let ((my-list nil))
+    (dolist (this-tag (split-string textile-list-tag "" t))
+      (cond
+       ((string= this-tag "#")
+        (push "ol" my-list))
+       ((string= this-tag "*")
+        (push "ul" my-list))))
+    my-list))
 
 (defun Textile-list-difference (small-list large-list)
   (if (equal small-list large-list)
@@ -553,6 +547,22 @@ string."
              small-list
              large-list)))))
 
+(defun Textile-open-list (tag style)
+  (Textile-new-token
+   (concat "<" tag " et_context=\""
+           tag "\" et_style=\""
+           style "\" et_cite=\"\"\n")))
+
+(defun Textile-close-list (tag)
+  (Textile-new-token
+   (concat "</" tag ">\n")))
+
+(defun Textile-list-item (context style)
+  (Textile-new-token
+   (concat "<li et_context=\"" context
+           "\" et_style=\"" style
+           "\" et_cite=\"\">")))
+
 (defun Textile-list-process (my-string)
   "Process Textile list code in MY-STRING, return tokenized text."
   (let ((list-level nil)
@@ -566,58 +576,33 @@ string."
                (list-style (match-string 1))
                (item-style (match-string 2))
                (current-list-context (Textile-list-context tag-string)))
+          (if (< (length current-list-context)
+                 (length list-level))
+              (progn
+                (dolist (close-tag (Textile-list-difference list-level
+                                                            current-list-context))
+                  (setq current-string
+                        (concat current-string
+                                (Textile-close-list close-tag)))
+                  (pop list-level))))
           (if (> (length current-list-context)
                  (length list-level))
               (progn
                 (setq current-string
                       (concat current-string
-                              (Textile-new-token
-                               (concat "<"
-                                       (car current-list-context)
-                                       " et_context=\""
-                                       (car current-list-context)
-                                       "\" et_style=\""
-                                       list-style
-                                       "\" et_cite=\"\">\n"))))
-                (push (car current-list-context) list-level)))
-          (setq current-string
-                (concat current-string
-                        (Textile-new-token
-                         (concat "<li et_context=\"li\" et_style=\""
-                                 item-style
-                                 "\" et_cite=\"\">"))))
-          (if (not (string= (car list-level)
-                            (car current-list-context)))
-              (progn
-                (setq current-string
-                      (concat current-string
-                              (Textile-new-token
-                               (concat "</" (car list-level) ">\n"))
-                              (Textile-new-token
-                               (concat "<"
-                                       (car current-list-context)
-                                       " et_context=\""
-                                       (car current-list-context)
-                                       "\" et_style=\""
-                                       list-style
-                                       "\" et_cite=\"\">\n"))))
+                              (Textile-open-list
+                               (car current-list-context)
+                               list-style)
+                              (Textile-list-item
+                               (car current-list-context)
+                               item-style)))
                 (push (car current-list-context) list-level))
-            (if (< (length current-list-context)
-                   (length list-level))
-                (progn
-                  (dolist (close-tag (Textile-list-difference list-level
-                                                              current-list-context))
-                    (setq current-string
-                          (concat current-string
-                                  (Textile-new-token
-                                   (concat "</" close-tag ">\n"))))
-                    (pop list-level)))))))
-      (while list-level
-        (setq current-string
-              (concat current-string
-                      (Textile-new-token
-                       (concat "</" (pop list-level) ">\n")))))
-      (replace-match current-string)
+            (setq current-string
+                  (concat current-string
+                          (Textile-list-item
+                           (car current-list-context)
+                           item-style)))))
+        (replace-match current-string))
       (buffer-string))))
 
 (defun Textile-table-process (my-string)
