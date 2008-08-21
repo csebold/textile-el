@@ -568,6 +568,9 @@ string."
            "\" et_style=\"" style
            "\" et_cite=\"\">")))
 
+(defun Textile-close-list-item ()
+  (Textile-new-token "</li>"))
+
 (defun Textile-list-process (my-string)
   "Process Textile list code in MY-STRING, return tokenized text."
   (let ((list-level nil)
@@ -578,10 +581,10 @@ string."
       (while (re-search-forward Textile-list-tag-regexp nil t)
         (setq current-string "")
         (save-match-data
-        (let* ((tag-string (match-string 2))
-               (list-style (match-string 1))
-               (item-style (match-string 3))
-               (current-list-context (Textile-list-context tag-string)))
+          (let* ((tag-string (match-string 2))
+                 (list-style (match-string 1))
+                 (item-style (match-string 3))
+                 (current-list-context (Textile-list-context tag-string)))
             (if (< (length current-list-context)
                    (length list-level))
                 (progn
@@ -589,6 +592,7 @@ string."
                                                               list-level))
                     (setq current-string
                           (concat current-string
+                                  (Textile-close-list-item)
                                   (Textile-close-list close-tag)))
                     (pop list-level))))
             (if (> (length current-list-context)
@@ -603,24 +607,21 @@ string."
                                  (car current-list-context)
                                  item-style)))
                   (push (car current-list-context) list-level))
+              (save-excursion
+                (save-match-data
+                  (beginning-of-line)
+                  (re-search-backward "\\([^\n]\\)" nil t)
+                  (replace-match (concat (match-string 0)
+                                         (Textile-new-token "</li>")))))
               (setq current-string
                     (concat current-string
                             (Textile-list-item
                              (car current-list-context)
                              item-style))))))
-        (replace-match current-string)
-        (save-excursion
-          (save-match-data
-            (if (re-search-forward Textile-list-tag-regexp nil t)
-                (progn
-                  (beginning-of-line)
-                  (re-search-backward "\\([^\n]\\)" nil t)
-                  (replace-match (concat (match-string 0)
-                                         (Textile-new-token "</li>"))))))))
+        (replace-match current-string))
       (goto-char (point-max))
-      (insert (Textile-new-token "</li>\n"))
       (while list-level
-        (insert (Textile-close-list (pop list-level))))
+        (insert (Textile-close-list-item) "\n" (Textile-close-list (pop list-level))))
       (buffer-string))))
 
 (defun Textile-table-process (my-string)
