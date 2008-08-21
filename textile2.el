@@ -525,35 +525,21 @@ string."
 
 (defun Textile-list-context (textile-list-tag)
   "Return list of HTML tags corresponding to list context (ol, ul)."
-  (let ((my-list nil)
+  (let ((my-list)
         (string-list (delete "" (split-string textile-list-tag ""))))
     (while string-list
       (cond
        ((string= (car string-list) "#")
-        (setq my-list (append (list "ol") (copy-tree my-list))))
+        (push (copy-sequence "ol") my-list))
        ((string= (car string-list) "*")
-        (setq my-list (append (list "ol") (copy-tree my-list)))))
+        (push (copy-sequence "ul") my-list)))
       (pop string-list))
     my-list))
 
-; FIXME These functions are creating circular lists!  Why?
-(defvar Textile-list-tags
-  '(("#" "ol") ("*" "ul")))
-
-(defun Textile-list-context (textile-list-tag)
-  "Return list of HTML tags corresponding to list context (ol, ul)."
-  (let ((my-list (delete " " (delete "" (split-string textile-list-tag "")))))
-    (mapcar (lambda (x) (cadr (assoc x Textile-list-tags))) my-list)))
-
-;    (dolist (this-tag (delete "" (split-string textile-list-tag "")))
-;      (cond
-;       ((string= this-tag "#")
-;        (push "ol" my-list))
-;       ((string= this-tag "*")
-;        (push "ul" my-list))))
-;    my-list))
-
 (defun Textile-list-difference (small-list large-list)
+  (if (> (length small-list)
+         (length large-list))
+      (error "Negative result, LARGE-LIST smaller than SMALL-LIST"))
   (if (equal small-list large-list)
       nil
     (if (= (length small-list) (length large-list))
@@ -570,7 +556,7 @@ string."
   (Textile-new-token
    (concat "<" tag " et_context=\""
            tag "\" et_style=\""
-           style "\" et_cite=\"\"\n")))
+           style "\" et_cite=\"\">\n")))
 
 (defun Textile-close-list (tag)
   (Textile-new-token
@@ -591,37 +577,41 @@ string."
       (goto-char (point-min))
       (while (re-search-forward Textile-list-tag-regexp nil t)
         (setq current-string "")
-        (let* ((tag-string (match-string 0))
+        (save-match-data
+        (let* ((tag-string (match-string 2))
                (list-style (match-string 1))
-               (item-style (match-string 2))
+               (item-style (match-string 3))
                (current-list-context (Textile-list-context tag-string)))
-          (if (< (length current-list-context)
-                 (length list-level))
-              (progn
-                (dolist (close-tag (Textile-list-difference list-level
-                                                            current-list-context))
+            (if (< (length current-list-context)
+                   (length list-level))
+                (progn
+                  (dolist (close-tag (Textile-list-difference current-list-context
+                                                              list-level))
+                    (setq current-string
+                          (concat current-string
+                                  (Textile-close-list close-tag)))
+                    (pop list-level))))
+            (if (> (length current-list-context)
+                   (length list-level))
+                (progn
                   (setq current-string
                         (concat current-string
-                                (Textile-close-list close-tag)))
-                  (pop list-level))))
-          (if (> (length current-list-context)
-                 (length list-level))
-              (progn
-                (setq current-string
-                      (concat current-string
-                              (Textile-open-list
-                               (car current-list-context)
-                               list-style)
-                              (Textile-list-item
-                               (car current-list-context)
-                               item-style)))
-                (push (car current-list-context) list-level))
-            (setq current-string
-                  (concat current-string
-                          (Textile-list-item
-                           (car current-list-context)
-                           item-style)))))
+                                (Textile-open-list
+                                 (car current-list-context)
+                                 list-style)
+                                (Textile-list-item
+                                 (car current-list-context)
+                                 item-style)))
+                  (push (car current-list-context) list-level))
+              (setq current-string
+                    (concat current-string
+                            (Textile-list-item
+                             (car current-list-context)
+                             item-style))))))
         (replace-match current-string))
+      (goto-char (point-max))
+      (while list-level
+        (insert (Textile-close-list (pop list-level))))
       (buffer-string))))
 
 (defun Textile-table-process (my-string)
