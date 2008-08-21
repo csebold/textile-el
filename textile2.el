@@ -571,6 +571,12 @@ string."
 (defun Textile-close-list-item ()
   (Textile-new-token "</li>"))
 
+(defun Textile-def-list-process (my-string)
+  "Process Textile definition list code in MY-STRING, return
+tokenized text."
+  ; FIXME: implement definition lists here
+  (Textile-new-token "</dl>\n\n"))
+
 (defun Textile-list-process (my-string)
   "Process Textile list code in MY-STRING, return tokenized text."
   (let ((list-level nil)
@@ -703,6 +709,15 @@ cell."
         (match-string 1 my-string)
       my-string)))
 
+(defmacro with-crs-temp-buffer (&rest body)
+  "I need to be able to see what's happening in this buffer - debug
+purposes only!"
+  (declare (debug (&rest form)))
+  `(with-current-buffer
+     (get-buffer-create "*crs-temp*")
+     (erase-buffer)
+     ,@body))
+
 (defun textile-string (my-string)
   "The workhorse loop.  Take MY-STRING, dump it in a temp buffer, and
   start operating on it."
@@ -810,8 +825,8 @@ cell."
             (replace-match (Textile-new-token (concat (match-string 1)
                                                       "</code></pre>\n\n")))
           (insert (Textile-new-token (concat (delete-and-extract-region
-                                              (point) (point-max)
-                                              "</code></pre>\n\n"))))))
+                                              (point) (point-max))
+                                              "</code></pre>\n\n")))))
     ; footnote processor
       (goto-char (point-min))
       (while (or (looking-at "fn\\([0-9]+\\)\\. ")
@@ -823,7 +838,7 @@ cell."
                                            (match-string 1)
                                            "</sup> ")))
         (if (re-search-forward "\n\n" nil t)
-            (replace-match (Textile-new-token "</p>\n\n"))
+            (replace-match (concat (Textile-new-token "</p>") "\n\n"))
           (goto-char (point-max))
           (insert (Textile-new-token "</p>"))))
     ; go through Textile sticky blockquote tags
@@ -843,8 +858,9 @@ cell."
                                       Textile-tags
                                       "\\([^.]*\\)\\.\\(:[^ ]*\\|\\) \\)")))
                 (progn
-                  (replace-match (Textile-new-token "</p></blockquote>\n\n"))
-                ; be careful, this could cause us to skip a token later
+                  (replace-match (concat
+                                  (Textile-new-token "</p></blockquote>")
+                                  "\n\n"))
                   (setq end-tag-found t))
               (replace-match (Textile-new-token "</p>\n\n<p>"))))))
     ; Fixup tables with "table." codes
@@ -954,9 +970,26 @@ cell."
                                                                 my-2nd-tag
                                                                 ">")))))
           (if (re-search-forward "\n\n" nil t)
-              (replace-match (Textile-new-token (concat my-close-tag "\n\n")))
+              (replace-match (concat (Textile-new-token my-close-tag) "\n\n"))
             (goto-char (point-max))
             (insert (Textile-new-token my-close-tag)))))
+      ; definition lists
+      (goto-char (point-min))
+      (while (or (looking-at "^dl\\([^.]*\\)\\. ")
+                 (re-search-forward "^dl\\([^.]*\\)\\. " nil t))
+        (let ((my-style (match-string 1)))
+          (replace-match (Textile-new-token (concat "<dl et_context=\"dl\""
+                                                    " et_style=\"" my-style
+                                                    "\" et_cite=\"\">\n")))
+          (insert
+           (Textile-def-list-process
+            (delete-and-extract-region
+             (point)
+             (if (re-search-forward "\n\n" nil t)
+                 (progn
+                   (re-search-backward "\n\n" nil t)
+                   (point))
+               (point-max)))))))
       ; lists
       (goto-char (point-min))
       (while (or (looking-at Textile-list-tag-regexp)
