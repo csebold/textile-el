@@ -585,6 +585,7 @@ string."
                  (list-style (match-string 1))
                  (item-style (match-string 3))
                  (current-list-context (Textile-list-context tag-string)))
+            ; list level is dropping
             (if (< (length current-list-context)
                    (length list-level))
                 (progn
@@ -592,9 +593,11 @@ string."
                                                               list-level))
                     (setq current-string
                           (concat current-string
+                                  (Textile-close-list close-tag)
                                   (Textile-close-list-item)
-                                  (Textile-close-list close-tag)))
+                                  "\n"))
                     (pop list-level))))
+            ; list level is increasing
             (if (> (length current-list-context)
                    (length list-level))
                 (progn
@@ -607,6 +610,7 @@ string."
                                  (car current-list-context)
                                  item-style)))
                   (push (car current-list-context) list-level))
+              ; no change in list level
               (save-excursion
                 (save-match-data
                   (beginning-of-line)
