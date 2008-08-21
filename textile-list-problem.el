@@ -10,9 +10,9 @@
       (while (not (eobp))
         (cond
          ((= (char-after) ?#)
-          (push "ol" my-list))
+          (push (copy-sequence "ol") my-list))
          ((= (char-after) ?*)
-          (push "ul" my-list)))
+          (push (copy-sequence "ul") my-list)))
         (forward-char 1)))
     my-list))
 
@@ -78,8 +78,8 @@
           (if (< (length current-list-context)
                  (length list-level))
               (progn
-                (dolist (close-tag (Textile-list-difference list-level
-                                                            current-list-context))
+                (dolist (close-tag (Textile-list-difference current-list-context
+                                                            list-level))
                   (setq current-string
                         (concat current-string
                                 (Textile-close-list close-tag)))
@@ -97,11 +97,6 @@
                                item-style)))
                 ; THE PROBLEM IS HERE!
                 (push (car current-list-context) list-level))
-;            (setq current-string
-;                  (concat current-string
-;                          (Textile-list-item
-;                           (car current-list-context)
-;                           item-style))))
           ))
         (replace-match current-string))
       (buffer-string))))
