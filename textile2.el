@@ -608,8 +608,17 @@ string."
                             (Textile-list-item
                              (car current-list-context)
                              item-style))))))
-        (replace-match current-string))
+        (replace-match current-string)
+        (save-excursion
+          (save-match-data
+            (if (re-search-forward Textile-list-tag-regexp nil t)
+                (progn
+                  (beginning-of-line)
+                  (re-search-backward "\\([^\n]\\)" nil t)
+                  (replace-match (concat (match-string 0)
+                                         (Textile-new-token "</li>"))))))))
       (goto-char (point-max))
+      (insert (Textile-new-token "</li>\n"))
       (while list-level
         (insert (Textile-close-list (pop list-level))))
       (buffer-string))))
