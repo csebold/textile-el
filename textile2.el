@@ -556,11 +556,11 @@ string."
   (Textile-new-token
    (concat "<" tag " et_context=\""
            tag "\" et_style=\""
-           style "\" et_cite=\"\">\n")))
+           style "\" et_cite=\"\">")))
 
 (defun Textile-close-list (tag)
   (Textile-new-token
-   (concat "</" tag ">\n")))
+   (concat "</" tag ">")))
 
 (defun Textile-list-item (context style)
   (Textile-new-token
@@ -594,6 +594,7 @@ string."
                     (setq current-string
                           (concat current-string
                                   (Textile-close-list close-tag)
+                                  "\n"
                                   (Textile-close-list-item)
                                   "\n"))
                     (pop list-level))))
@@ -606,6 +607,7 @@ string."
                                 (Textile-open-list
                                  (car current-list-context)
                                  list-style)
+                                "\n"
                                 (Textile-list-item
                                  (car current-list-context)
                                  item-style)))
