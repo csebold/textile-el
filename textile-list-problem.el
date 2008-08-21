@@ -95,12 +95,14 @@
                               (Textile-list-item
                                (car current-list-context)
                                item-style)))
+                ; THE PROBLEM IS HERE!
                 (push (car current-list-context) list-level))
-            (setq current-string
-                  (concat current-string
-                          (Textile-list-item
-                           (car current-list-context)
-                           item-style)))))
+;            (setq current-string
+;                  (concat current-string
+;                          (Textile-list-item
+;                           (car current-list-context)
+;                           item-style))))
+          ))
         (replace-match current-string))
       (buffer-string))))
 
@@ -116,7 +118,6 @@
                (re-search-forward Textile-list-tag-regexp
                                   nil t))
       (let ((first-part (match-string 0))
-            (second-part "")
             (start-point (point)))
         (replace-match "")
         (setq start-point (point))
