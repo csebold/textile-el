@@ -184,8 +184,8 @@
   "Generated regular expression for Textile inline tags.")
 
 (defvar Textile-inline-tag-re
-  (concat "\\(?:^\\|\\W\\)" Textile-inline-tags
-          "\\([^\000]+?\\)\\(\\1\\)\\(?:$\\|\\W\\)")
+  (concat "\\(^\\|\\W\\)" Textile-inline-tags
+          "\\([^\000]+?\\)\\(\\2\\)\\($\\|\\W\\)")
   "This will match any inline tag and what has been tagged.")
 
 (defvar Textile-escape-tag-re
@@ -1254,10 +1254,12 @@ purposes only!"
       ; FIXME: not working so well.  Will probably have to hand-carve the RE
   (while (or (looking-at Textile-inline-tag-re)
              (re-search-forward Textile-inline-tag-re nil t))
-    (let ((my-tag (cadr (assoc (match-string 1) Textile-inline-tag-list))))
-      (replace-match (concat (Textile-new-token 'inline "<" my-tag ">")
-                             (match-string 2)
-                             (Textile-new-token 'inline "</" my-tag ">"))
+    (let ((my-tag (cadr (assoc (match-string 2) Textile-inline-tag-list))))
+      (replace-match (concat (match-string 1)
+                             (Textile-new-token 'inline "<" my-tag ">")
+                             (match-string 3)
+                             (Textile-new-token 'inline "</" my-tag ">")
+                             (match-string 5))
                      t t))
     (goto-char (point-min))))
 
@@ -1365,10 +1367,10 @@ purposes only!"
       ; macros and quotes
       (Textile-quotes)
       (Textile-macros)
-      ; acronyms
-      (Textile-acronyms)
       ; inline tags
       (Textile-inlines)
+      ; acronyms
+      (Textile-acronyms)
       ; OK, any block that stands alone is a paragraph by now.
       (Textile-unmarked-paragraphs)
       ; All Textile tag interpretation is complete.  Now, revert tokens:
