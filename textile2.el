@@ -527,7 +527,7 @@ string."
                 (if (> (safe-length image-dim) 1)
                     (setq width (car image-dim)
                           height (cadr image-dim))
-                  (dolist (this-parm (cdr image-list))
+                  (dolist (this-parm (cdr image-data))
                     (if (string-match "^\\(.*\\)w$" this-parm)
                         (setq width (match-string 1 this-parm))
                       (if (string-match "^\\(.*\\)h$" this-parm)
