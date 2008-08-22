@@ -1,3 +1,4 @@
+; -*- mode: emacs-lisp; mode: auto-fill; -*-
 ; textile2.el
 ; $Id$
 
@@ -988,7 +989,64 @@ purposes only!"
 
 (defun Textile-images ()
   "Process Textile images in this buffer."
-  (goto-char (point-min)))
+  (goto-char (point-min))
+  (while
+      (re-search-forward
+       "\\(!\\([^ ][^!]+?\\) *\\((\\(.*?\\))\\)?!\\)\\(:\\([^ ]*?\\)\\([,.;:]?\\(?: \\|$\\)\\)\\)?"
+       nil t)
+    ; wow.  1 = the image code
+    ;       2 = data (URL, style) of image
+    ;       3 = title code with parentheses
+    ;       4 = title code sans parentheses
+    ;       5 = all code following image
+    ;       6 = link if it exists
+    ;       7 = delimiter if it exists
+    (let ((image-code (match-string 1))
+          (image-data (match-string 2))
+          (title-with-parens (match-string 3))
+          (title (match-string 4))
+          (link-code (match-string 5))
+          (link-url (match-string 6))
+          (delimiter (match-string 7)))
+      (replace-match (concat
+                      (if link-url
+                          "\"")
+                      (Textile-image-process image-data title)
+                      (if link-url
+                          (concat "\":" link-url delimiter)
+                        link-code)) t))))
+
+(defun Textile-image-process (image-data title)
+  "Return Textile token for image at IMAGE-DATA, with TITLE."
+  (save-match-data
+    (let* ((tag-string "<img src=\"")
+           (image-list (split-string image-data " "))
+           (image-dim (if (cadr image-list)
+                          (split-string (cadr image-list) "x")
+                        nil)))
+      (setq tag-string (concat tag-string (car image-list) "\""))
+      (if title
+          (setq tag-string (concat tag-string " alt=\""
+                                   title "\"")))
+      (if (> (safe-length image-dim) 1)
+          (setq tag-string (concat tag-string " width=\""
+                                   (car image-dim)
+                                   "\" height=\""
+                                   (cadr image-dim)
+                                   "\""))
+        (dolist (this-parm (cdr image-list))
+          (if (string-match "^\\(.*\\)w$" this-parm)
+              (setq tag-string
+                    (concat tag-string " width=\""
+                            (match-string 1 this-parm)
+                            "\""))
+            (if (string-match "^\\(.*\\)h$" this-parm)
+                (setq tag-string
+                      (concat tag-string " height=\""
+                              (match-string 1 this-parm)
+                              "\""))))))
+    ; FIXME: style information?
+      (Textile-new-token 'inline tag-string " />"))))
 
 (defun Textile-links ()
   "Process Textile links in this buffer."
@@ -1242,8 +1300,6 @@ purposes only!"
       (Textile-table-fixup)
       ; find tables, call out to table processor
       (Textile-table-replace)
-      ; acronyms
-      (Textile-acronyms)
       ; image support
       (Textile-images)
       ; links
@@ -1259,6 +1315,8 @@ purposes only!"
       ; macros and quotes
       (Textile-quotes)
       (Textile-macros)
+      ; acronyms
+      (Textile-acronyms)
       ; inline tags
       (Textile-inlines)
       ; OK, any block that stands alone is a paragraph by now.
