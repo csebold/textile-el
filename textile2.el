@@ -71,7 +71,7 @@
 ;
 ; See docs/bugs.txt for the bugs in this version.
 
-(defvar textile-version "textile2.el v1.99.1"
+(defvar textile-version "textile2.el v1.99.2"
   "Version number for textile.el.")
 
 (defvar Textile-tokens (make-hash-table :test 'eql)
