@@ -666,8 +666,7 @@ tokenized text."
           (goto-char (point-max))
           (insert (Textile-new-token 'block "</dd>")))))
     (goto-char (point-max))
-    (insert (Textile-new-token 'block "</dl>")
-            "\n\n")
+    (insert "\n" (Textile-new-token 'block "</dl>"))
     (buffer-string)))
 
 (defun Textile-list-process (my-string)
