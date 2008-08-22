@@ -252,6 +252,26 @@ a list whose car is the title and cadr is the URL.")
             (replace-match "&amp;" t))))
       (buffer-string))))
 
+(defun Textile-process-code (my-string)
+  "Replace five XML entities in this string."
+  (save-match-data
+    (with-temp-buffer
+      (insert (Textile-process-ampersand my-string))
+      (goto-char (point-min))
+      (save-excursion
+        (while (re-search-forward "<" nil t)
+          (replace-match "&lt;")))
+      (save-excursion
+        (while (re-search-forward ">" nil t)
+          (replace-match "&gt;")))
+      (save-excursion
+        (while (re-search-forward "\"" nil t)
+          (replace-match "&quot;")))
+      (save-excursion
+        (while (re-search-forward "'" nil t)
+          (replace-match "&apos;")))
+      (buffer-string))))
+
 (defun textile-header (title &optional html-version charset &rest headers)
   "Insert HTML header so that Textile documents can be self-contained."
   (let ((my-docstrings Textile-xhtml-docstrings)
@@ -885,15 +905,17 @@ purposes only!"
       (if end-point
           (replace-match (concat (Textile-new-token
                                   'block
-                                  (match-string 1)
+                                  (Textile-process-code
+                                   (match-string 1))
                                   "</code></pre>")
                                  (match-string 2))
                          t)
         (goto-char (point-max))
         (setq end-point (point))
         (insert (Textile-new-token 'block
-                                   (delete-and-extract-region
-                                    start-point end-point)
+                                   (Textile-process-code
+                                    (delete-and-extract-region
+                                    start-point end-point))
                                    "</code></pre>"))))))
 
 (defun Textile-blockcode ()
@@ -910,12 +932,14 @@ purposes only!"
                    t)
     (if (looking-at "\\(.*\\)\n\n")
         (replace-match (Textile-new-token 'block
-                                          (match-string 1)
+                                          (Textile-process-code
+                                           (match-string 1))
                                           "</code></pre>\n\n")
                        t)
       (insert (Textile-new-token 'block
-                                 (delete-and-extract-region
-                                  (point) (point-max))
+                                 (Textile-process-code
+                                  (delete-and-extract-region
+                                   (point) (point-max)))
                                  "</code></pre>\n\n")))))
 
 (defun Textile-footnotes ()
@@ -1257,7 +1281,9 @@ purposes only!"
     (let ((my-tag (cadr (assoc (match-string 2) Textile-inline-tag-list))))
       (replace-match (concat (match-string 1)
                              (Textile-new-token 'inline "<" my-tag ">")
-                             (match-string 3)
+                             (if (string= my-tag "code")
+                                 (Textile-process-code (match-string 3))
+                               (match-string 3))
                              (Textile-new-token 'inline "</" my-tag ">")
                              (match-string 5))
                      t t))
