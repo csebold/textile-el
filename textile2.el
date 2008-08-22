@@ -368,6 +368,9 @@ string."
               (colspan nil)
               (textile-header nil)
               (not-finished t)
+              (height nil)
+              (width nil)
+              (src nil)
               (textile-well-formed t))
           (while (not (eobp))
             (let ((this-char (char-after)))
@@ -466,6 +469,11 @@ string."
                    (equal this-char ?-))
               (push "vertical-align: middle" style)
               (forward-char 1))
+             ; stop testing image styles, assume this is the URL
+             ((and (string= context-arg "img")
+                   (looking-at ".*$"))
+              (setq src (match-string 0))
+              (goto-char (point-max)))
              (t
               (forward-char 1)))))
           (if (> left-pad 0)
@@ -489,6 +497,27 @@ string."
             (when (and (stringp (eval this-variable))
                        (string= (eval this-variable) ""))
               (set this-variable nil)))
+          (if src
+              (let* ((image-data (split-string src " "))
+                     (image-dim (if (cadr image-data)
+                                    (split-string (cadr image-data) "x")
+                                  nil)))
+                (setq return-string (concat return-string " src=\""
+                                            (car image-data) "\""))
+                (if (> (safe-length image-dim) 1)
+                    (setq width (car image-dim)
+                          height (cadr image-dim))
+                  (dolist (this-parm (cdr image-list))
+                    (if (string-match "^\\(.*\\)w$" this-parm)
+                        (setq width (match-string 1 this-parm))
+                      (if (string-match "^\\(.*\\)h$" this-parm)
+                          (setq height (match-string 1 this-parm))))))))
+          (if width
+              (setq return-string (concat return-string " width=\""
+                                          width "\"")))
+          (if height
+              (setq return-string (concat return-string " height=\""
+                                          height "\"")))
           (if class
               (setq return-string (concat return-string " class=\""
                                           (Textile-string-concat class " ")
@@ -523,6 +552,10 @@ string."
               (setq return-string (concat return-string " rowspan=\""
                                           rowspan "\"")))
           ))
+      (if (and (string= context-arg "img")
+               (> (length cite-arg) 0))
+          (setq return-string (concat return-string " alt=\""
+                                      cite-arg "\"")))
       (if (and (string= context-arg "blockquote")
                (> (length cite-arg) 0))
           (setq return-string (concat return-string " cite=\""
@@ -1018,35 +1051,52 @@ purposes only!"
 
 (defun Textile-image-process (image-data title)
   "Return Textile token for image at IMAGE-DATA, with TITLE."
-  (save-match-data
-    (let* ((tag-string "<img src=\"")
-           (image-list (split-string image-data " "))
-           (image-dim (if (cadr image-list)
-                          (split-string (cadr image-list) "x")
-                        nil)))
-      (setq tag-string (concat tag-string (car image-list) "\""))
-      (if title
-          (setq tag-string (concat tag-string " alt=\""
-                                   title "\"")))
-      (if (> (safe-length image-dim) 1)
-          (setq tag-string (concat tag-string " width=\""
-                                   (car image-dim)
-                                   "\" height=\""
-                                   (cadr image-dim)
-                                   "\""))
-        (dolist (this-parm (cdr image-list))
-          (if (string-match "^\\(.*\\)w$" this-parm)
-              (setq tag-string
-                    (concat tag-string " width=\""
-                            (match-string 1 this-parm)
-                            "\""))
-            (if (string-match "^\\(.*\\)h$" this-parm)
-                (setq tag-string
-                      (concat tag-string " height=\""
-                              (match-string 1 this-parm)
-                              "\""))))))
-    ; FIXME: style information?
-      (Textile-new-token 'inline tag-string " />"))))
+  (Textile-new-token 'inline
+                     "<img et_context=\"img\""
+                     " et_style=\"" image-data
+                     "\" et_cite=\"" title
+                     "\"/>"))
+
+; All further processing gets done in the attribute processor
+
+;;            (image-list (split-string image-data " "))
+;;            (image-tag-info (Textile-image-get-style
+;;                             (car image-list)))
+;;            (image-style (cadr image-tag-info))
+;;            (image-dim (if (cadr image-list)
+;;                           (split-string (cadr image-list) "x")
+;;                         nil)))
+;;       (setq tag-string (concat tag-string
+;;                                (car image-tag-info)
+;;                                "\""))
+;;       (if title
+;;           (setq tag-string (concat tag-string " alt=\""
+;;                                    title "\"")))
+;;       (if (> (safe-length image-dim) 1)
+;;           (setq tag-string (concat tag-string " width=\""
+;;                                    (car image-dim)
+;;                                    "\" height=\""
+;;                                    (cadr image-dim)
+;;                                    "\""))
+;;         (dolist (this-parm (cdr image-list))
+;;           (if (string-match "^\\(.*\\)w$" this-parm)
+;;               (setq tag-string
+;;                     (concat tag-string " width=\""
+;;                             (match-string 1 this-parm)
+;;                             "\""))
+;;             (if (string-match "^\\(.*\\)h$" this-parm)
+;;                 (setq tag-string
+;;                       (concat tag-string " height=\""
+;;                               (match-string 1 this-parm)
+;;                               "\""))))))
+;;       (setq tag-string (concat tag-string " et_style=\""
+;;                                image-style "\""))
+;;     ; FIXME: style information?
+;;       (Textile-new-token 'inline tag-string " />"))))
+
+;; (defun Textile-image-get-style (image-data)
+;;   "Break up IMAGE-DATA and return a list (URL STYLE)."
+  
 
 (defun Textile-links ()
   "Process Textile links in this buffer."
