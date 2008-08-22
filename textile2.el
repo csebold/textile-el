@@ -1421,4 +1421,26 @@ purposes only!"
       (Textile-compile-attributes)
       (buffer-string))))
 
+; functions to support batch mode (for CGI operation, perhaps)
+
+(defun Textile-batch-read ()
+  "Read file from STDIN."
+  (read-from-minibuffer ""))
+
+(defun Textile-batch-write (arg)
+  "Write output to STDOUT."
+  (send-string-to-terminal arg))
+
+(when noninteractive
+  (let ((input-string ""))
+    (while (condition-case nil
+	       (setq current-line (Textile-batch-read))
+	     (error nil))
+      (while (string-match "\r" current-line)
+	(setq current-line (replace-match "" nil nil current-line)))
+      (setq input-string (concat input-string current-line "\n")))
+    (Textile-batch-write (textile-string
+			  (substring input-string 0
+				     (- (length input-string) 1))))))
+
 (provide 'textile2)
