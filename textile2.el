@@ -77,20 +77,27 @@
   "Token hash table; this is currently a global, which is probably unwise.")
 
 (defvar Textile-token-re
-  "\000e[0-9]+x\000"
+  "\000e[bi][0-9]+x\000"
   "Regular expression for finding a token.")
 
-(defun Textile-new-token (my-string)
-  "Add MY-STRING to token hash table; returns string tag which replaces it."
-  (let ((current-index (hash-table-count Textile-tokens)))
-    (puthash current-index my-string Textile-tokens)
-    (format "\000e%dx\000" current-index)))
+(defun Textile-new-token (block-or-inline &rest my-strings)
+  "Add MY-STRINGS to token hash table; returns one string tag which replaces them."
+  (let ((current-index (hash-table-count Textile-tokens))
+        (b-or-i (cond
+                ((equal block-or-inline 'block)
+                 "b")
+                ((equal block-or-inline 'inline)
+                 "i")
+                (t
+                 (error "Bad argument, %S" block-or-inline)))))
+    (puthash current-index (apply 'concat my-strings) Textile-tokens)
+    (format "\000e%s%dx\000" b-or-i current-index)))
 
 (defun Textile-get-token (my-index)
   "Get Textile token by hash index; does not change token table."
   (if (stringp my-index)
       (save-match-data
-        (if (string-match "^\000e\\([0-9]+\\)x\000$"
+        (if (string-match "^\000e[bi]\\([0-9]+\\)x\000$"
                           my-index)
             (setq my-index (string-to-int (match-string 1 my-index)))
           (setq my-index (string-to-int my-index)))))
@@ -241,7 +248,7 @@ a list whose car is the title and cadr is the URL.")
         (while (re-search-forward "&" nil t)
           (if (looking-at "#?\\w+;")
               (re-search-forward "#?\\w+;" nil t)
-            (replace-match "&amp;"))))
+            (replace-match "&amp;" t))))
       (buffer-string))))
 
 (defun textile-header (title &optional html-version charset &rest headers)
@@ -553,29 +560,49 @@ string."
              large-list)))))
 
 (defun Textile-open-list (tag style)
-  (Textile-new-token
-   (concat "<" tag " et_context=\""
-           tag "\" et_style=\""
-           style "\" et_cite=\"\">")))
+  (Textile-new-token 'block
+   "<" tag " et_context=\""
+   tag "\" et_style=\""
+   style "\" et_cite=\"\">"))
 
 (defun Textile-close-list (tag)
-  (Textile-new-token
-   (concat "</" tag ">")))
+  (Textile-new-token 'block
+   "</" tag ">"))
 
 (defun Textile-list-item (context style)
-  (Textile-new-token
-   (concat "<li et_context=\"" context
-           "\" et_style=\"" style
-           "\" et_cite=\"\">")))
+  (Textile-new-token 'block
+   "<li et_context=\"" context
+   "\" et_style=\"" style
+   "\" et_cite=\"\">"))
 
 (defun Textile-close-list-item ()
-  (Textile-new-token "</li>"))
+  (Textile-new-token 'block "</li>"))
 
 (defun Textile-def-list-process (my-string)
   "Process Textile definition list code in MY-STRING, return
 tokenized text."
-  ; FIXME: implement definition lists here
-  (Textile-new-token "</dl>\n\n"))
+  (with-temp-buffer
+    (insert my-string)
+    (goto-char (point-min))
+    (while (re-search-forward "^\\([^:\n]+\\):" nil t)
+      (replace-match (concat (Textile-new-token 'block "<dt>")
+                             (match-string 1)
+                             (Textile-new-token 'block "</dt>")
+                             "\n"
+                             (Textile-new-token 'block "<dd>"))
+                     t)
+      (save-excursion
+        (if (re-search-forward "\n\\([^:\n]+:\\)" nil t)
+            (replace-match (concat (Textile-new-token 'block "</dd>")
+                                   "\n"
+                                   (match-string 1))
+                           t)
+          (goto-char (point-max))
+          (insert (Textile-new-token 'block "</dd>")))))
+    (goto-char (point-max))
+    (insert (Textile-new-token 'block "</dl>")
+            "\n\n")
+    (buffer-string)))
 
 (defun Textile-list-process (my-string)
   "Process Textile list code in MY-STRING, return tokenized text."
@@ -624,13 +651,15 @@ tokenized text."
                   (beginning-of-line)
                   (re-search-backward "\\([^\n]\\)" nil t)
                   (replace-match (concat (match-string 0)
-                                         (Textile-new-token "</li>")))))
+                                         (Textile-new-token 'block
+                                                            "</li>"))
+                                 t)))
               (setq current-string
                     (concat current-string
                             (Textile-list-item
                              (car current-list-context)
                              item-style))))))
-        (replace-match current-string))
+        (replace-match current-string t))
       (goto-char (point-max))
       (while list-level
         (insert (Textile-close-list-item) "\n" (Textile-close-list (pop list-level))))
@@ -644,11 +673,13 @@ cell."
     (goto-char (point-min))
     (if (looking-at "table\\([^|]*\\)\\. *")
         (progn
-          (replace-match (Textile-new-token (concat "<table"
-                                                    " et_context=\"table\""
-                                                    " et_style=\""
-                                                    (match-string 1)
-                                                    "\" et_cite=\"\">\n")))
+          (replace-match (Textile-new-token 'block
+                                            "<table"
+                                            " et_context=\"table\""
+                                            " et_style=\""
+                                            (match-string 1)
+                                            "\" et_cite=\"\">\n")
+                         t)
           ; start processing rows
           (dolist (this-row
                    (Textile-split-string (delete-and-extract-region
@@ -661,11 +692,12 @@ cell."
                (if (or (looking-at " *\\([^| ]*\\) *")
                        (re-search-forward "^ *\\([^| ]*\\) *" nil t))
                    (replace-match (Textile-new-token
-                                   (concat "<tr"
-                                           " et_context=\"tr\""
-                                           " et_style=\""
-                                           (match-string 1)
-                                           "\" et_cite=\"\">"))))
+                                   'block
+                                   "<tr"
+                                   " et_context=\"tr\""
+                                   " et_style=\""
+                                   (match-string 1)
+                                   "\" et_cite=\"\">") t))
                (dolist (this-cell
                         (Textile-split-string
                          (delete-and-extract-region (point) (point-max))
@@ -686,20 +718,21 @@ cell."
                           (replace-match
                            (concat
                             (Textile-new-token
-                             (concat "<" my-tag
-                                     " et_context=\"" my-tag "\""
-                                     " et_style=\""
-                                     (match-string 2)
-                                     "\" et_cite=\"\">"))
+                             'block
+                             "<" my-tag
+                             " et_context=\"" my-tag "\""
+                             " et_style=\""
+                             (match-string 2)
+                             "\" et_cite=\"\">")
                             (Textile-trim (match-string 3))
-                            (Textile-new-token (concat
-                                                "</" my-tag ">"))))))
+                            (Textile-new-token 'block "</" my-tag ">"))
+                           t)))
                     (buffer-string))))
                (buffer-string)))
-            (insert (Textile-new-token "</tr>\n")))
+            (insert (Textile-new-token 'block "</tr>\n")))
           ; end table tag
           (goto-char (point-max))
-          (insert (Textile-new-token "</table>"))))
+          (insert (Textile-new-token 'block "</table>"))))
     (buffer-string)))
 
 (defun Textile-trim (my-string)
@@ -727,12 +760,12 @@ purposes only!"
         (my-table-col 0))
     (with-temp-buffer
       (insert my-string)
-    ; begin tokenizing
-    ; First we need to remove the \000 strings
+      ; begin tokenizing
+      ; First we need to remove the \000 strings
       (goto-char (point-min))
       (while (re-search-forward "\000" nil t)
-        (replace-match (Textile-new-token (match-string 0))))
-    ; first provide for BC's unit test; may remove this later
+        (replace-match (Textile-new-token 'inline (match-string 0)) t))
+      ; first provide for BC's unit test; may remove this later
       (goto-char (point-min))
       (while (re-search-forward "^==>" nil t)
         (let ((start-pos (save-excursion
@@ -742,20 +775,17 @@ purposes only!"
           (if (re-search-forward "-----$" nil t)
               (setq end-pos (point))
             (setq end-pos (point-max)))
-          (insert (Textile-new-token (delete-and-extract-region
+          (insert (Textile-new-token 'block
+                                     (delete-and-extract-region
                                       start-pos end-pos)))))
       (goto-char (point-min))
-    ; BC one-line comments
+      ; BC one-line comments
       (while (re-search-forward "^//.*$" nil t)
-        (replace-match (Textile-new-token (match-string 0))))
-    ; inline elisp
+        (replace-match (Textile-new-token 'block (match-string 0)) t))
+      ; inline elisp
       (goto-char (point-min))
       (while (re-search-forward "#\\[(\\(([\000-\177]+?)\\))\\]#" nil t)
         (replace-match
-       ; interesting question: tokenize elisp output, or not?
-       ; more powerful (and more bug-capable) if we don't;
-       ; then we can generate Textile code, not just escaped code
-;       (Textile-new-token
          (if noninteractive
              "elisp evaluation not available"
            (let ((my-response
@@ -765,9 +795,8 @@ purposes only!"
              (if (stringp my-response)
                  my-response
                (format "%S" my-response))))
-;        )
          t nil nil 0))
-    ; double-equals escapes
+      ; double-equals escapes
       (goto-char (point-min))
       (while (or (looking-at "^==\n")
                  (re-search-forward "^==\n" nil t))
@@ -778,78 +807,94 @@ purposes only!"
                              (replace-match "")
                              (point))
                          (point-max))))
-          (insert (Textile-new-token (delete-and-extract-region
+          (insert (Textile-new-token 'block
+                                     (delete-and-extract-region
                                       start-pos end-pos)))))
-    ; double-equals escapes inline
+      ; double-equals escapes inline
       (goto-char (point-min))
       (while (or (looking-at Textile-escape-tag-re)
                  (re-search-forward Textile-escape-tag-re nil t))
-        (replace-match (Textile-new-token (concat
-                                           (match-string 1)
-                                           (match-string 2)
-                                           (match-string 3)))))
-    ; blockcode processor, sticky
+        (replace-match (Textile-new-token 'inline
+                                          (match-string 1)
+                                          (match-string 2)
+                                          (match-string 3))
+                       t))
+      ; blockcode processor, sticky
       (goto-char (point-min))
       (while (or (looking-at "bc\\([^.]*\\)\\.\\.\\(:[^ ]*\\|\\) ")
                  (re-search-forward "^bc\\([^.]*\\)\\.\\.\\(:[^ ]*\\|\\) "
                                     nil t))
         (replace-match (Textile-new-token
-                        (concat "<pre et_context=\"pre\" et_style=\""
-                                (match-string 1) "\" et_cite=\""
-                                (match-string 2)
-                                "\"><code>")))
+                        'block
+                        "<pre et_context=\"pre\" et_style=\""
+                        (match-string 1) "\" et_cite=\""
+                        (match-string 2)
+                        "\"><code>")
+                       t)
         (let ((start-point (point))
               (end-point (re-search-forward
                           (concat "\\(.*\\)\\(\n\n" Textile-tags
                                   "\\([^.]*\\)\\.\\(:[^ ]*\\|\\) \\)") nil t)))
           (if end-point
               (replace-match (concat (Textile-new-token
-                                      (concat (match-string 1)
-                                              "</code></pre>"))
-                                     (match-string 2)))
+                                      'block
+                                      (match-string 1)
+                                      "</code></pre>")
+                                     (match-string 2))
+                             t)
             (goto-char (point-max))
             (setq end-point (point))
-            (insert (Textile-new-token (concat (delete-and-extract-region
-                                                start-point end-point)
-                                               "</code></pre>"))))))
-    ; blockcode processor, non-sticky
+            (insert (Textile-new-token 'block
+                                       (delete-and-extract-region
+                                        start-point end-point)
+                                       "</code></pre>")))))
+      ; blockcode processor, non-sticky
       (goto-char (point-min))
       (while (or (looking-at "bc\\([^.]*\\)\\.\\(:[^ ]*\\|\\) ")
                  (re-search-forward "^bc\\([^.]*\\)\\.\\(:[^ ]*\\|\\) " nil t))
         (replace-match (Textile-new-token
-                        (concat "<pre et_context=\"pre\" et_style=\""
-                                (match-string 1) "\" et_cite=\""
-                                (match-string 2)
-                                "\"><code>")))
+                        'block
+                        "<pre et_context=\"pre\" et_style=\""
+                        (match-string 1) "\" et_cite=\""
+                        (match-string 2)
+                        "\"><code>")
+                       t)
         (if (looking-at "\\(.*\\)\n\n")
-            (replace-match (Textile-new-token (concat (match-string 1)
-                                                      "</code></pre>\n\n")))
-          (insert (Textile-new-token (concat (delete-and-extract-region
-                                              (point) (point-max))
-                                              "</code></pre>\n\n")))))
-    ; footnote processor
+            (replace-match (Textile-new-token 'block
+                                              (match-string 1)
+                                              "</code></pre>\n\n")
+                           t)
+          (insert (Textile-new-token 'block
+                                     (delete-and-extract-region
+                                      (point) (point-max))
+                                     "</code></pre>\n\n"))))
+      ; footnote processor
       (goto-char (point-min))
       (while (or (looking-at "fn\\([0-9]+\\)\\. ")
                  (re-search-forward "^fn\\([0-9]+\\)\\. " nil t))
-        (replace-match (Textile-new-token (concat
-                                           "<p class=\"footnote\" id=\"fn"
-                                           (match-string 1)
-                                           "\"><sup>"
-                                           (match-string 1)
-                                           "</sup> ")))
+        (replace-match (Textile-new-token 'block
+                                          "<p class=\"footnote\" id=\"fn"
+                                          (match-string 1)
+                                          "\"><sup>"
+                                          (match-string 1)
+                                          "</sup> ")
+                       t)
         (if (re-search-forward "\n\n" nil t)
-            (replace-match (concat (Textile-new-token "</p>") "\n\n"))
+            (replace-match (concat (Textile-new-token 'block
+                                                      "</p>") "\n\n")
+                           t)
           (goto-char (point-max))
-          (insert (Textile-new-token "</p>"))))
-    ; go through Textile sticky blockquote tags
+          (insert (Textile-new-token 'block "</p>"))))
+      ; go through Textile sticky blockquote tags
       (goto-char (point-min))
       (while (or (looking-at "bq\\([^.]*\\)\\.\\.\\(:[^ ]*\\|\\) ")
                  (re-search-forward "bq\\([^.]*\\)\\.\\.\\(:[^ ]*\\|\\) " nil t))
         (replace-match (Textile-new-token
-                        (concat
-                         "<blockquote et_context=\"blockquote\" et_style=\""
-                         (match-string 1) "\" et_cite=\"" (match-string 2)
-                         "\"><p>")))
+                        'block
+                        "<blockquote et_context=\"blockquote\" et_style=\""
+                        (match-string 1) "\" et_cite=\"" (match-string 2)
+                        "\"><p>")
+                       t)
         (let ((end-tag-found nil))
           (while (and (not end-tag-found)
                       (re-search-forward "\n\n" nil t))
@@ -859,19 +904,23 @@ purposes only!"
                                       "\\([^.]*\\)\\.\\(:[^ ]*\\|\\) \\)")))
                 (progn
                   (replace-match (concat
-                                  (Textile-new-token "</p></blockquote>")
-                                  "\n\n"))
+                                  (Textile-new-token 'block
+                                                     "</p></blockquote>")
+                                  "\n\n")
+                                 t)
                   (setq end-tag-found t))
-              (replace-match (Textile-new-token "</p>\n\n<p>"))))))
-    ; Fixup tables with "table." codes
+              (replace-match (Textile-new-token 'block
+                                                "</p>\n\n<p>")
+                             t)))))
+      ; Fixup tables with "table." codes
       (goto-char (point-min))
       (while (re-search-forward "^\\(table[^.]*\\.\\)\n" nil t)
-        (replace-match (concat (match-string 1) " ")))
+        (replace-match (concat (match-string 1) " ") t))
       (goto-char (point-min))
       (while (or (looking-at "\n\n|.*|")
                  (re-search-forward "\n\n|.*|" nil t))
-        (replace-match (concat "table. " (match-string 0))))
-    ; find tables, call out to table processor
+        (replace-match (concat "table. " (match-string 0)) t))
+      ; find tables, call out to table processor
       (goto-char (point-min))
       (while (or (looking-at "table[^.]*\\. ")
                  (re-search-forward "^table[^.]*\\. " nil t)
@@ -896,19 +945,23 @@ purposes only!"
                   nil t))
         (if (match-string 3)
             (replace-match
-             (Textile-new-token
-              (concat "<acronym title=\""
-                      (match-string 3)
-                      "\">"
-                      (match-string 1)
-                      "</acronym>")))
+             (Textile-new-token 'inline
+                                "<acronym title=\""
+                                (match-string 3)
+                                "\">"
+                                (match-string 1)
+                                "</acronym>")
+             t)
           (replace-match
            (concat
-            (Textile-new-token "<span class=\"caps\">")
+            (Textile-new-token 'inline
+                               "<span class=\"caps\">")
             (match-string 1)
-            (Textile-new-token "</span>")))))
+            (Textile-new-token 'inline "</span>"))
+           t)))
       (setq case-fold-search t)
-    ; links
+      ; image support will go here, before links
+      ; links
       (goto-char (point-min))
       (while (or (looking-at "\"\\([^\"]*?\\)\":\\([^ ]*?\\)\\(&#[0-9]+;\\)")
                  (re-search-forward "\"\\([^\"]*?\\)\":\\([^ ]*?\\)\\(&#[0-9]+;\\)"
@@ -934,53 +987,27 @@ purposes only!"
               (setq title nil))
           (replace-match (concat
                           (Textile-new-token
-                           (concat "<a href=\""
-                                   (Textile-process-ampersand url)
-                                   "\""
-                                   (if title
-                                       (concat " title=\"" title
-                                               "\""))
-                                   ">"))
+                           'inline
+                           "<a href=\""
+                           (Textile-process-ampersand url)
+                           "\""
+                           (if title
+                               (concat " title=\"" title
+                                       "\""))
+                           ">")
                           text
-                          (Textile-new-token "</a>") delimiter))))
-    ; go through Textile tags
-      (goto-char (point-min))
-      (while (or (looking-at (concat Textile-tags
-                                     "\\([^.]*\\)\\.\\(:[^ ]*\\|\\) "))
-                 (re-search-forward (concat "^" "\\(?:" Textile-token-re
-                                            "\\|\\)"
-                                            Textile-tags
-                                            "\\([^.]*\\)\\.\\(:[^ ]*\\|\\) ")
-                                    nil t))
-        (let* ((my-tags (cdr (assoc (match-string 1) Textile-tag-re-list)))
-               (my-1st-tag (car my-tags))
-               (my-2nd-tag (cadr my-tags))
-               (my-close-tag (concat (if my-2nd-tag
-                                         (concat "</" my-2nd-tag ">"))
-                                     "</" my-1st-tag ">")))
-          (replace-match (Textile-new-token (concat "<" my-1st-tag
-                                                    " et_context=\""
-                                                    my-1st-tag
-                                                    "\" et_style=\""
-                                                    (match-string 2)
-                                                    "\" et_cite=\""
-                                                    (match-string 3) "\">"
-                                                    (if my-2nd-tag
-                                                        (concat "<"
-                                                                my-2nd-tag
-                                                                ">")))))
-          (if (re-search-forward "\n\n" nil t)
-              (replace-match (concat (Textile-new-token my-close-tag) "\n\n"))
-            (goto-char (point-max))
-            (insert (Textile-new-token my-close-tag)))))
+                          (Textile-new-token 'inline "</a>") delimiter)
+                         t)))
       ; definition lists
       (goto-char (point-min))
       (while (or (looking-at "^dl\\([^.]*\\)\\. ")
                  (re-search-forward "^dl\\([^.]*\\)\\. " nil t))
         (let ((my-style (match-string 1)))
-          (replace-match (Textile-new-token (concat "<dl et_context=\"dl\""
-                                                    " et_style=\"" my-style
-                                                    "\" et_cite=\"\">\n")))
+          (replace-match (Textile-new-token 'block
+                                            "<dl et_context=\"dl\""
+                                            " et_style=\"" my-style
+                                            "\" et_cite=\"\">\n")
+                         t)
           (insert
            (Textile-def-list-process
             (delete-and-extract-region
@@ -990,6 +1017,41 @@ purposes only!"
                    (re-search-backward "\n\n" nil t)
                    (point))
                (point-max)))))))
+      ; go through Textile tags
+      (goto-char (point-min))
+      (while (or (looking-at (concat Textile-tags
+                                     "\\([^.\n]*\\)\\.\\(:[^ ]*\\|\\) "))
+                 (re-search-forward (concat "^" "\\(?:" Textile-token-re
+                                            "\\|\\)"
+                                            Textile-tags
+                                            "\\([^.\n]*\\)\\.\\(:[^ ]*\\|\\) ")
+                                    nil t))
+        (let* ((my-tags (cdr (assoc (match-string 1) Textile-tag-re-list)))
+               (my-1st-tag (car my-tags))
+               (my-2nd-tag (cadr my-tags))
+               (my-close-tag (concat (if my-2nd-tag
+                                         (concat "</" my-2nd-tag ">"))
+                                     "</" my-1st-tag ">")))
+          (replace-match (Textile-new-token 'block
+                                            "<" my-1st-tag
+                                            " et_context=\""
+                                            my-1st-tag
+                                            "\" et_style=\""
+                                            (match-string 2)
+                                            "\" et_cite=\""
+                                            (match-string 3) "\">"
+                                            (if my-2nd-tag
+                                                (concat "<"
+                                                        my-2nd-tag
+                                                        ">")))
+                         t)
+          (if (re-search-forward "\n\n" nil t)
+              (replace-match (concat (Textile-new-token 'block
+                                                        my-close-tag) "\n\n")
+                             t)
+            (goto-char (point-max))
+            (insert (Textile-new-token 'block
+                                       my-close-tag)))))
       ; lists
       (goto-char (point-min))
       (while (or (looking-at Textile-list-tag-regexp)
@@ -1006,52 +1068,77 @@ purposes only!"
           (insert (Textile-list-process (concat first-part
                                                 (delete-and-extract-region
                                                  start-point (point)))))))
-    ; inline footnotes
+      ; inline footnotes
       (goto-char (point-min))
       (while (or (looking-at "\\[\\([0-9]+\\)\\]")
                  (re-search-forward "\\[\\([0-9]+\\)\\]" nil t))
         (replace-match (Textile-new-token
-                        (concat "<sup class=\"footnote\">"
-                                "<a href=\"#fn"
-                                (match-string 1)
-                                "\">"
-                                (match-string 1)
-                                "</a></sup>"))))
-    ; macros and quotes
+                        'inline
+                        "<sup class=\"footnote\">"
+                        "<a href=\"#fn"
+                        (match-string 1)
+                        "\">"
+                        (match-string 1)
+                        "</a></sup>")
+                       t))
+      ; macros and quotes
       (dolist (next-item Textile-smart-quotes-list)
         (goto-char (point-min))
         (while (or (looking-at (car next-item))
                    (re-search-forward (car next-item) nil t))
-          (replace-match (Textile-new-token (cadr next-item))
+          (replace-match (Textile-new-token 'inline
+                                            (cadr next-item))
                          t t nil 1)))
       (dolist (next-item Textile-macros-list)
         (goto-char (point-min))
         (while (or (looking-at (car next-item))
                    (re-search-forward (car next-item) nil t))
-          (replace-match (Textile-new-token (cadr next-item))
+          (replace-match (Textile-new-token 'inline
+                                            (cadr next-item))
                          t t nil 1)))
-    ; inline tags
+      ; inline tags
       (goto-char (point-min))
-    ; FIXME: not working so well.  Will probably have to hand-carve the RE
+      ; FIXME: not working so well.  Will probably have to hand-carve the RE
       (while (or (looking-at Textile-inline-tag-re)
                  (re-search-forward Textile-inline-tag-re nil t))
         (let ((my-tag (cadr (assoc (match-string 1) Textile-inline-tag-list))))
-          (replace-match (concat (Textile-new-token
-                                  (concat "<" my-tag ">"))
+          (replace-match (concat (Textile-new-token 'inline "<" my-tag ">")
                                  (match-string 2)
-                                 (Textile-new-token
-                                  (concat "</" my-tag ">"))) t t))
+                                 (Textile-new-token 'inline "</" my-tag ">"))
+                         t t))
         (goto-char (point-min)))
-    ; OK, any block that stands alone is a paragraph by now.
-    ; So, figure out how to mark standalone paragraphs.
-    ; FIXME: this is where the unmarked p tags go
-    ; revert tokens
+      ; OK, any block that stands alone is a paragraph by now.
+      (goto-char (point-min))
+      (when (looking-at "\\([^\000\n]\\|\000ei[0-9]+x\000\\)")
+        (replace-match (concat (Textile-new-token 'block "<p>")
+                               (match-string 1))
+                       t)
+        (save-excursion
+          (if (re-search-forward "\n\\{2,\\}" nil t)
+              (replace-match (concat
+                              (Textile-new-token 'block
+                                                 "</p>")
+                              (match-string 0)) t))))
+      (while (re-search-forward
+              "\\(\n\\{2,\\}\\)\\([^\000\n]\\|\000ei[0-9]+x\000\\)"
+              nil t)
+        (replace-match (concat (match-string 1)
+                               (Textile-new-token 'block "<p>")
+                               (match-string 2))
+                       t)
+        (save-excursion
+          (if (re-search-forward "\n\\{2,\\}" nil t)
+              (replace-match (concat
+                              (Textile-new-token 'block
+                                                 "</p>")
+                              (match-string 0)) t))))
+      ; revert tokens
       (goto-char (point-min))
       (while (or (looking-at Textile-token-re)
                  (re-search-forward Textile-token-re nil t))
         (replace-match (Textile-get-token (match-string 0)) t t)
         (goto-char (point-min)))
-    ; interpret attributes
+      ; interpret attributes
       (goto-char (point-min))
       (while (re-search-forward (concat " et_context=\"\\([^\"]*\\)\""
                                         " et_style=\"\\([^\"]*\\)\""
@@ -1068,7 +1155,8 @@ purposes only!"
                                                      (match-string 2)
                                                      (match-string 3)
                                                      my-table
-                                                     my-table-col))
+                                                     my-table-col)
+                       t)
         (goto-char (point-min)))
     (buffer-string))))
 
