@@ -1316,6 +1316,20 @@ purposes only!"
                                              "</p>")
                           (match-string 0)) t)))))
 
+(defun Textile-autolink ()
+  "Process URLs in this buffer and link them."
+  (goto-char (point-min))
+  (while (re-search-forward
+          "\\(\\(?:https?\\|ftp\\|mailto\\):\\(?://\\)?.*?\\)\\([],.;:\"']?\\(?:\000\\| \\|$\\)\\)"
+          nil t)
+    (replace-match (Textile-new-token 'inline
+                                      "<a href=\""
+                                      (Textile-process-ampersand (match-string 1))
+                                      "\">"
+                                      (Textile-process-ampersand (match-string 1))
+                                      "</a>"
+                                      (match-string 2)))))
+
 (defun Textile-revert-tokens ()
   "Revert all Textile tokens in this buffer."
   (goto-char (point-min))
@@ -1390,6 +1404,8 @@ purposes only!"
       (Textile-lists)
       ; inline footnotes
       (Textile-inline-footnotes)
+      ; autolink URLs
+      (Textile-autolink)
       ; macros and quotes
       (Textile-quotes)
       (Textile-macros)
