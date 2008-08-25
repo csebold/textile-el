@@ -236,7 +236,7 @@ a list whose car is the title and cadr is the URL.")
   nil)
 
 (defvar Textile-list-tag-regexp
-  "^\\(([^ ]+?)\\|\\)\\([*#]+\\)"
+  "^\\(([^ ]+?)\\|\\)\\([*#]+\\)\\([^\n]+\\)"
   "All list block tags must match this.")
 
 (defun Textile-process-ampersand (my-string)
@@ -369,6 +369,43 @@ If ARG, insert string at point."
                             (assoc ,akey ,my-alist))))
      (push (list ,akey ,new-item) ,my-alist)))
 
+(defun Textile-split-attribs (my-string valid-attribs)
+  "For MY-STRING, return a list with two strings: valid attributions in
+  the first string, and the rest of the line as the cadr."
+  (save-match-data
+    (let ((attrib-string "")
+          (rest-string ""))
+      (with-temp-buffer
+        (insert my-string)
+        (goto-char (point-min))
+        (while (not (eobp))
+          (let ((this-char (char-after)))
+            (if (not (member this-char (append valid-attribs nil)))
+                (progn
+                  (setq rest-string
+                        (concat rest-string
+                                (buffer-substring (point)
+                                                  (point-max))))
+                  (goto-char (point-max)))
+              (cond
+               ((or
+                 (looking-at "{\\([^}]*\\)}")
+                 (looking-at "\\[\\(.*?\\)\\]")
+                 (looking-at "(\\([^) (]+\\))")
+                 (looking-at "<>")
+                 (looking-at "[\\]\\([0-9]+\\)")
+                 (looking-at "/\\([0-9]+\\)"))
+                (setq attrib-string (concat attrib-string (match-string 0)))
+                (replace-match ""))
+               (t
+                (setq attrib-string
+                      (concat attrib-string (string this-char)))
+                (forward-char 1)))))))
+      (list attrib-string rest-string))))
+
+; FIXME: there has to be a way to make split-attribs and interpret-style
+;        work together
+
 (defun Textile-interpret-style (my-string valid-attribs)
   "Interpret style string and return the rest of the string and a list
   of the attributes found."
@@ -464,7 +501,6 @@ If ARG, insert string at point."
                                                  my-column)
   "Interpret the attributes for block tags and return the actual XHTML
 string."
-  ; FIXME: only seems to be working for images at the moment?
   (save-match-data
     (let* ((return-string "")
            (my-attribs (Textile-interpret-style
@@ -721,8 +757,11 @@ tokenized text."
         (save-match-data
           (let* ((tag-string (match-string 2))
                  (list-style (match-string 1))
-                 ; FIXME: there isn't a match 3 anymore
-                 (item-style (match-string 3))
+                 (item-split (Textile-split-attribs
+                              (match-string 3)
+                              (Textile-get-valid-attribs "li")))
+                 (item-style (car item-split))
+                 (rest-of-item (cadr item-split))
                  (current-list-context (Textile-list-context tag-string)))
             ; list level is dropping
             (if (< (length current-list-context)
@@ -749,7 +788,8 @@ tokenized text."
                                 "\n"
                                 (Textile-list-item
                                  (car current-list-context)
-                                 item-style)))
+                                 item-style)
+                                rest-of-item))
                   (push (car current-list-context) list-level))
               ; no change in list level
               (save-excursion
@@ -764,7 +804,8 @@ tokenized text."
                     (concat current-string
                             (Textile-list-item
                              (car current-list-context)
-                             item-style))))))
+                             item-style)
+                            rest-of-item)))))
         (replace-match current-string t))
       (goto-char (point-max))
       (while list-level
