@@ -236,7 +236,7 @@ a list whose car is the title and cadr is the URL.")
   nil)
 
 (defvar Textile-list-tag-regexp
-  "^\\(([^ ]+?)\\|\\)\\([*#]+\\)\\([^\n]+\\)"
+  "\\(([^ ]+?)\\|\\)\\([*#]+\\)\\([^\n]+\\)"
   "All list block tags must match this.")
 
 (defun Textile-process-ampersand (my-string)
@@ -401,6 +401,8 @@ If ARG, insert string at point."
                 (setq attrib-string
                       (concat attrib-string (string this-char)))
                 (forward-char 1)))))))
+      (if (string-match "^ \\(.*\\)$" rest-string)
+          (setq rest-string (match-string 1 rest-string)))
       (list attrib-string rest-string))))
 
 ; FIXME: there has to be a way to make split-attribs and interpret-style
@@ -1263,7 +1265,8 @@ purposes only!"
   "Process Textile lists in this buffer."
   (goto-char (point-min))
   (while (or (looking-at Textile-list-tag-regexp)
-             (re-search-forward Textile-list-tag-regexp
+             (re-search-forward (concat "\\(?:\`\\|\n\n\\)"
+                                        Textile-list-tag-regexp)
                                 nil t))
     (let ((first-part (match-string 0))
           (second-part "")
