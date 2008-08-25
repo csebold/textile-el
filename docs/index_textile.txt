@@ -61,12 +61,12 @@ as a dead end.
 This page is created in textile.el, and should give you some idea of how
 well things are working so far.  Don't blame textile.el for my simple
 stylesheet.  You can see the original Textile source code for this page
-"here":index_textile.txt.
+"here":http://zancanda.staticcling.org/cgi-bin/viewvc.cgi/textile/docs/index_textile.txt?root=cvs&view=markup.
 
 textile.el is being released under the GNU General Public License.  It
 is being reverse-engineered from the specs and Textile-to-XHTML
-generation tools on Dean Allen's and Brad Choate's websites; it is
-*not* a port of PHP or Perl code to Emacs Lisp.  I have never laid
+generation tools on Dean Allen's and Brad Choate's websites; it
+is *not* a port of PHP or Perl code to Emacs Lisp.  I have never laid
 eyes on the code for either Textile or MT-Textile.  Dean Allen and
 Brad Choate are not responsible for this implementation of Textile in
 any way, and all bug reports for the Emacs version need to come to me
