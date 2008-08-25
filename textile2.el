@@ -361,7 +361,6 @@ If ARG, insert string at point."
   (textile-region (point-min) (point-max)))
 
 (defmacro push-assoc (new-item akey my-alist)
-;  (declare (debug (sexp sexp form)))
   "Push something onto an alist."
   `(if (assoc ,akey ,my-alist)
         (setcdr (assoc ,akey ,my-alist)
@@ -433,247 +432,187 @@ If ARG, insert string at point."
                 (push-assoc (match-string 1) 'rowspan my-list)
                 (re-search-forward "/\\([0-9]+\\)" nil t))
                ((equal this-char ?-)
-                (push-assoc "vertical-align: middle" style)
+                (push-assoc "vertical-align: middle" 'style my-list)
                 (forward-char 1))
                (t
                 (push (buffer-substring (point) (point-max)) my-list)
-                (goto-char (point-max))))))))
+                (goto-char (point-max)))))))
+        (if (and
+             (eobp)
+             (listp (car my-list)))
+            (push "" my-list)))
       my-list)))
 
 (defvar Textile-valid-attribs
-  '(('default "{[()<>=") ("table" "{[()<>=^~\\/-")
-    ("img" "{[()<>=^~\\/-"))
+  '((default "{[()<>=") ("table" "{[()<>=^~\\/-")
+    ("img" "{[()<>=^~"))
   "Characters which can start an attrib string in a Textile tag.")
+
+(defun Textile-get-valid-attribs (my-tag)
+  "Return a string of valid attribute chars for MY-TAG."
+  (cadr
+   (or
+    (assq my-tag Textile-valid-attribs)
+    (assoc 'default Textile-valid-attribs))))
 
 (defun Textile-interpret-attributes (context-arg style-arg cite-arg
                                                  &optional my-table
                                                  my-column)
   "Interpret the attributes for block tags and return the actual XHTML
 string."
-  ; FIXME: need to separate this out, into a function that returns the
-  ; list of (rest-of-string '(style alist)), and then the function that
-  ; operates on that
-
-  ; We'll call Textile-interpret-style MY-STRING (cadr (assoc
-  ; context-tag Textile-valid-attribs)) and that should work
+  ; FIXME: only seems to be working for images at the moment?
   (save-match-data
-    (let ((return-string ""))
+    (let* ((return-string "")
+           (my-attribs (Textile-interpret-style
+                        style-arg
+                        (Textile-get-valid-attribs context-arg)))
+           (string-rest (car my-attribs))
+           (my-plist (cadr my-attribs)))
       (if (string-match "^:" cite-arg)
           (setq cite-arg (replace-match "" t t cite-arg)))
-      (with-temp-buffer
-        (insert style-arg)
-        (goto-char (point-min))
-        (while (re-search-forward "\n" nil t)
-          (replace-match " "))
-        (goto-char (point-min))
-        (let ((my-plist nil)
-              (style nil)
-              (class nil)
-              (id nil)
-              (lang nil)
-              (left-pad 0)
-              (right-pad 0)
-              (align nil)
-              (valign nil)
-              (rowspan nil)
-              (colspan nil)
-              (textile-header nil)
-              (not-finished t)
-              (height nil)
-              (width nil)
-              (src nil)
-              (textile-well-formed t))
-          (while (not (eobp))
-            (let ((this-char (char-after)))
-              (cond
-;             ((looking-at "{\\([^}]*\\)}")
-;              (push (match-string 1) style)
-;              (re-search-forward "}" nil t))
-;             ((looking-at "\\[\\(.*?\\)\\]")
-;              (setq lang (match-string 1))
-;              (re-search-forward "\\]" nil t))
-;             ((looking-at "(\\([^) (]+\\))")
-;              (let ((this-attrib (save-match-data
-;                                   (Textile-split-string
-;                                    (match-string 1) "#"))))
-;                (if (and (string-match "#" (match-string 1))
-;                         (= (match-beginning 0) 0))
-;                    (setq id (car this-attrib))
-;                  (push (car this-attrib) class)
-;                  (setq id (cadr this-attrib))))
-;              (re-search-forward ")" nil t))
-;             ((equal this-char ?\()
-;              (setq left-pad (1+ left-pad))
-;              (forward-char 1))
-;             ((equal this-char ?\))
-;              (setq right-pad (1+ right-pad))
-;              (forward-char 1))
-
-; FIXME: don't forget to carry this forward into the next version of
-; this function
-
-;             ((equal this-char ?\>)
-;              (cond
-;               ((string= context-arg "table")
-;                (push "float:right" style))
-;               ((or (string= context-arg "th")
-;                    (string= context-arg "td"))
-;                (setq align "right")
-;                (if (string= context-arg "th")
-;                    (Textile-set-align my-table my-column "right")))
-;               (t
-;                (push "right" class)
-;                (push "text-align:right" style)))
-;              (forward-char 1))
-
-; This is already there
-
-;             ((looking-at "<>")
-;              (push "justify" class)
-;              (push "text-align:justify" style)
-;              (forward-char 2))
-
-; FIXME: don't forget to carry this forward into the next version of
-; this function
-
-;             ((equal this-char ?\<)
-;              (cond
-;               ((string= context-arg "table")
-;                (push "float:left" style))
-;               ((or (string= context-arg "th")
-;                    (string= context-arg "td"))
-;                (setq align "left")
-;                (if (string= context-arg "th")
-;                    (Textile-set-align my-table my-column "left")))
-;               (t
-;                (push "left" class)
-;                (push "text-align:left" style)))
-;              (forward-char 1))
-;             ((equal this-char ?\=)
-;              (if (string= context-arg "table")
-;                  (progn
-;                    (push "margin-left: auto" style)
-;                    (push "margin-right: auto" style))
-;                (push "text-align:center" style)
-;                (push "center" class))
-;              (forward-char 1))
-;             ((and (or (string= context-arg "tr")
-;                       (string= context-arg "td")
-;                       (string= context-arg "th"))
-;                   (equal this-char ?^ ))
-;              (setq valign "top")
-;              (forward-char 1))
-;             ((and (string= context-arg "img")
-;                   (equal this-char ?^ ))
-;              (push "vertical-align: text-top" style)
-;              (forward-char 1))
-;             ((and (or (string= context-arg "tr")
-;                       (string= context-arg "td")
-;                       (string= context-arg "th"))
-;                   (equal this-char ?\~))
-;              (setq valign "bottom")
-;              (forward-char 1))
-;             ((and (string= context-arg "img")
-;                   (equal this-char ?\~))
-;              (push "vertical-align: text-bottom" style)
-;              (forward-char 1))
-;             ((and (or (string= context-arg "td")
-;                       (string= context-arg "th"))
-;                   (looking-at "[\\]\\([0-9]+\\)"))
-;              (setq colspan (match-string 1))
-;              (re-search-forward "[\\]\\([0-9]+\\)" nil t))
-;             ((and (or (string= context-arg "td")
-;                       (string= context-arg "th"))
-;                   (looking-at "/\\([0-9]+\\)"))
-;              (setq rowspan (match-string 1))
-;              (re-search-forward "/\\([0-9]+\\)" nil t))
-;             ((and (string= context-arg "img")
-;                   (equal this-char ?-))
-;              (push "vertical-align: middle" style)
-;              (forward-char 1))
-             ; stop testing image styles, assume this is the URL
-             ((and (string= context-arg "img")
-                   (looking-at ".*$"))
-              (setq src (match-string 0))
-              (goto-char (point-max)))
-             (t
-              (forward-char 1)))))
-          (if (> left-pad 0)
-              (push (concat "padding-left:" (format "%d" left-pad) "em")
-                    style))
-          (if (> right-pad 0)
-              (push (concat "padding-right:" (format "%d" right-pad) "em")
-                    style))
-          (when (and (or (> left-pad 0) (> right-pad 0))
-                     style)
-            (when (member "text-align:left" style)
-              (setq style (delete "text-align:left" style))
-              (push "float:left" style))
-            (when (member "text-align:right" style)
-              (setq style (delete "text-align:right" style))
-              (push "float:right" style)))
-          (dolist (this-variable '(style class id lang align valign
-                                         colspan rowspan
-                                         textile-header
-                                         textile-well-formed))
-            (when (and (stringp (eval this-variable))
-                       (string= (eval this-variable) ""))
-              (set this-variable nil)))
-          (if src
-              (let* ((image-data (split-string src " "))
-                     (image-dim (if (cadr image-data)
-                                    (split-string (cadr image-data) "x")
-                                  nil)))
-                (setq return-string (concat return-string " src=\""
-                                            (car image-data) "\""))
-                (if (> (safe-length image-dim) 1)
-                    (setq width (car image-dim)
-                          height (cadr image-dim))
-                  (dolist (this-parm (cdr image-data))
-                    (if (string-match "^\\(.*\\)w$" this-parm)
-                        (setq width (match-string 1 this-parm))
-                      (if (string-match "^\\(.*\\)h$" this-parm)
-                          (setq height (match-string 1 this-parm))))))))
-          (if width
-              (setq return-string (concat return-string " width=\""
-                                          width "\"")))
-          (if height
-              (setq return-string (concat return-string " height=\""
-                                          height "\"")))
-          (if class
-              (setq return-string (concat return-string " class=\""
-                                          (Textile-string-concat class " ")
-                                          "\"")))
-          (if id
-              (setq return-string (concat return-string " id=\"" id "\"")))
-          (if align
+      (let ((style (assoc 'style my-plist))
+            (class (assoc 'class my-plist))
+            (id (assoc 'id my-plist))
+            (lang (assoc 'lang my-plist))
+            (left-pad 0)
+            (right-pad 0)
+            (align nil)
+            (valign nil)
+            (rowspan (assoc 'rowspan my-plist))
+            (colspan (assoc 'colspan my-plist))
+            (textile-header nil)
+            (not-finished t)
+            (height nil)
+            (width nil)
+            (src nil)
+            (textile-well-formed t))
+        (if (assoc 'left-pad my-plist)
+            (push-assoc (format "padding-left:%dem"
+                                (apply '+ (cdr (assoc 'left-pad
+                                                      my-plist))))
+                        'style my-plist))
+        (if (assoc 'right-pad my-plist)
+            (push-assoc (concat "padding-right:%dem"
+                                (apply '+ (cdr (assoc 'right-pad
+                                                      my-plist))))
+                        'style my-plist))
+        (when (and
+               (or
+                (and
+                 (assoc 'left-pad my-plist)
+                 (> (assoc 'left-pad my-plist) 0))
+                (and
+                 (assoc 'right-pad my-plist)
+                 (> (assoc 'right-pad my-plist) 0)))
+               (assoc 'style my-plist))
+          (when (member "text-align:left" style)
+            (setq style (delete "text-align:left" style))
+            (push "float:left" style))
+          (when (member "text-align:right" style)
+            (setq style (delete "text-align:right" style))
+            (push "float:right" style)))
+        (when (equal (assoc 'alignment my-plist) 'left)
+          (cond
+           ((string= context-arg "table")
+            (push "float:left" style))
+           ((or (string= context-arg "th")
+                (string= context-arg "td"))
+            (setq align "left")
+            (if (string= context-arg "th")
+                (Textile-set-align my-table my-column "left")))
+           (t
+            (push "left" class)
+            (push "text-align:left" style))))
+        (when (equal (assoc 'alignment my-plist) 'right)
+          (cond
+           ((string= context-arg "table")
+            (push "float:right" style))
+           ((or (string= context-arg "th")
+                (string= context-arg "td"))
+            (setq align "right")
+            (if (string= context-arg "th")
+                (Textile-set-align my-table my-column "right")))
+           (t
+            (push "right" class)
+            (push "text-align:right" style))))
+        (when (equal (assoc 'valignment my-plist) 'top)
+          (cond
+           ((or (string= context-arg "tr")
+                (string= context-arg "th")
+                (string= context-arg "td"))
+            (setq valign "top"))
+           ((string= context-arg "img")
+            (push "vertical-align: text-top" style))))
+        (when (equal (assoc 'valignment my-plist) 'bottom)
+          (cond
+           ((or (string= context-arg "tr")
+                (string= context-arg "th")
+                (string= context-arg "td"))
+            (setq valign "bottom"))
+           ((string= context-arg "img")
+            (push "vertical-align: text-bottom" style))))
+        (dolist (this-variable '(style class id lang align valign
+                                       colspan rowspan
+                                       textile-header
+                                       textile-well-formed))
+          (when (and (stringp (eval this-variable))
+                     (string= (eval this-variable) ""))
+            (set this-variable nil)))
+        (if (and (string= context-arg "img")
+                 (setq src string-rest))
+            (let* ((image-data (split-string src " "))
+                   (image-dim (if (cadr image-data)
+                                  (split-string (cadr image-data) "x")
+                                nil)))
+              (setq return-string (concat return-string " src=\""
+                                          (car image-data) "\""))
+              (if (> (safe-length image-dim) 1)
+                  (setq width (car image-dim)
+                        height (cadr image-dim))
+                (dolist (this-parm (cdr image-data))
+                  (if (string-match "^\\(.*\\)w$" this-parm)
+                      (setq width (match-string 1 this-parm))
+                    (if (string-match "^\\(.*\\)h$" this-parm)
+                        (setq height (match-string 1 this-parm))))))))
+        (if width
+            (setq return-string (concat return-string " width=\""
+                                        width "\"")))
+        (if height
+            (setq return-string (concat return-string " height=\""
+                                        height "\"")))
+        (if class
+            (setq return-string (concat return-string " class=\""
+                                        (Textile-string-concat class " ")
+                                        "\"")))
+        (if id
+            (setq return-string (concat return-string " id=\"" id "\"")))
+        (if align
+            (setq return-string (concat return-string " align=\""
+                                        align "\""))
+          (if (and my-column
+                   (string= context-arg "td")
+                   (Textile-get-align my-table my-column))
               (setq return-string (concat return-string " align=\""
-                                          align "\""))
-            (if (and my-column
-                     (string= context-arg "td")
-                     (Textile-get-align my-table my-column))
-                (setq return-string (concat return-string " align=\""
-                                            (Textile-get-align my-table
-                                                               my-column)
-                                            "\""))))
-          (if style
-              (setq return-string (concat return-string " style=\""
-                                          (Textile-string-concat style ";")
-                                          "\"")))
-          (if lang
-              (setq return-string (concat return-string
-                                          (if (string= Textile-xhtml-version
-                                                       "XHTML 1.1")
-                                              " xml:lang=\""
-                                            " lang=\"")
-                                          lang "\"")))
-          (if colspan
-              (setq return-string (concat return-string " colspan=\""
-                                          colspan "\"")))
-          (if rowspan
-              (setq return-string (concat return-string " rowspan=\""
-                                          rowspan "\"")))
-          ))
+                                          (Textile-get-align my-table
+                                                             my-column)
+                                          "\""))))
+        (if style
+            (setq return-string (concat return-string " style=\""
+                                        (Textile-string-concat style ";")
+                                        "\"")))
+        (if lang
+            (setq return-string (concat return-string
+                                        (if (string= Textile-xhtml-version
+                                                     "XHTML 1.1")
+                                            " xml:lang=\""
+                                          " lang=\"")
+                                        lang "\"")))
+        (if colspan
+            (setq return-string (concat return-string " colspan=\""
+                                        colspan "\"")))
+        (if rowspan
+            (setq return-string (concat return-string " rowspan=\""
+                                        rowspan "\""))))
       (if (and (string= context-arg "img")
                (> (length cite-arg) 0))
           (setq return-string (concat return-string " alt=\""
