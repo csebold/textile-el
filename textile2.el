@@ -169,6 +169,10 @@
     ("h4" "h4") ("h5" "h5"))
   "List of Textile tags and their HTML counterparts.")
 
+(defvar Textile-all-blocks-re
+  "\\(?:\`\\|\n\n\\)\\(?:bc\\|bq\\|p\\|h[1-5]\\|dl\\|==\n\\|[*] \\|[#] \\)"
+  "Possible tags that could end a blockcode/blockquote.")
+
 (defvar Textile-tags
   (regexp-opt (mapcar 'car Textile-tag-re-list) t)
   "Generated regular expression for Textile block tags.")
@@ -1007,6 +1011,7 @@ purposes only!"
                    t)
     (let ((start-point (point))
           (end-point (re-search-forward
+                      ; FIXME: replace with Textile-all-blocks-re
                       (concat "\\(.*\\)\\(\n\n" Textile-tags
                               "\\([^.]*\\)\\.\\(:[^ ]*\\|\\) \\)") nil t)))
       (if end-point
@@ -1082,6 +1087,7 @@ purposes only!"
     (let ((end-tag-found nil))
       (while (and (not end-tag-found)
                   (re-search-forward "\n\n" nil t))
+        ; FIXME: replace with Textile-all-blocks-re
         (if (save-match-data
               (looking-at (concat "\\(" Textile-token-re "\\)\\|\\("
                                   Textile-tags
@@ -1103,9 +1109,11 @@ purposes only!"
   (while (re-search-forward "^\\(table[^.]*\\.\\)\n" nil t)
     (replace-match (concat (match-string 1) " ") t))
   (goto-char (point-min))
-  (while (or (looking-at "\n\n|.*|")
-             (re-search-forward "\n\n|.*|" nil t))
-    (replace-match (concat "table. " (match-string 0)) t)))
+  (while (or (looking-at "|[^\n]*|")
+             (re-search-forward (concat "\\(\`\\|\n\n\\)"
+                                        "\\(|.*|\\)") nil t))
+    (replace-match (concat (match-string 1)
+                           "table. " (match-string 2)) t)))
 
 (defun Textile-table-replace ()
   "Replace Textile tables in this buffer with tokenized code."
