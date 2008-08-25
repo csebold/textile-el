@@ -32,7 +32,7 @@ What about @#@@[((textile-version t))]#@?
 
 h2. Textile smart quotes tests:
 
-""This is a link.":http://www.livingtorah.org"
+""This is a link.":http://zancanda.staticcling.org"
 
 This is a ".emacs" file.
 
@@ -52,11 +52,11 @@ Don't look now, but here come the '80s.
 
 h2. Textile v1 image tests:
 
-!http://www.livingtorah.org/images/a.gif!
+!http://zancanda.staticcling.org/images/a.gif!
 
-Here is !http://www.livingtorah.org/images/a.gif (an inline image)! to see if that works.
+Here is !http://zancanda.staticcling.org/images/a.gif (an inline image)! to see if that works.
 
-And finally, here is !http://a.com/b.gif (a normal image)! and !http://a.com/c.gif (a linked image)!:ltm which is linked to an alias, no less.
+And finally, here is !http://a.com/b.gif (a normal image)! and !http://a.com/c.gif (a linked image)!:zso which is linked to an alias, no less.
 
 h2. Textile v2 image tests:
 
@@ -68,19 +68,19 @@ h2. Textile v2 image tests:
 
 !{border: 0px}http://a.com/b.gif 30x40 (with a title)!
 
-!{border: 0px}http://a.com/b.gif 30x40 (with a title)!:ltm
+!{border: 0px}http://a.com/b.gif 30x40 (with a title)!:zso
 
 Can an _image be !http://a.com/b.gif (surrounded by tags)! without_ breaking?
 
 h2. Textile link tests:
 
-See http://www.livingtorah.org for a normal inline link without any special text.
+See http://zancanda.staticcling.org for a normal inline link without any special text.
 
-OK, "here is a link":http://www.livingtorah.org to my website.
+OK, "here is a link":http://zancanda.staticcling.org to my website.
 
-"Here is a link":http://www.livingtorah.org, and "here's another":http://www.livingtorah.org.
+"Here is a link":http://zancanda.staticcling.org, and "here's another":http://zancanda.staticcling.org.
 
-Let's try aliases: "here":ltm is the ministry link, and "here":ltj is the journal.
+Let's try aliases: "here":zso is the ministry link, and "here":zst is the journal.
 
 And then "a normal link (Sun)":http://www.sun.com to Sun's website.
 
@@ -165,8 +165,8 @@ fn42. This is my forty-second.
 
 p=. Written by Charles Sebold
 
-[ltm (Living Torah Ministries)]http://www.livingtorah.org
-[ltj]http://www.livingtorah.org/journal/
+[zso (My Emacs Pages)]http://zancanda.staticcling.org
+[zst]http://zancanda.staticcling.org/emacs/textile/
 
 ==
 <!--
