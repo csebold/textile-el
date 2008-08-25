@@ -66,12 +66,12 @@ stylesheet.  You can see the original Textile source code for this page
 
 textile.el is being released under the GNU General Public License.  It
 is being reverse-engineered from the specs and Textile-to-XHTML
-generation tools on Dean Allen's and Brad Choate's websites; it
-is *not* a port of PHP or Perl code to Emacs Lisp.  I have never laid
-eyes on the code for either Textile or MT-Textile.  Dean Allen and
-Brad Choate are not responsible for this implementation of Textile in
-any way, and all bug reports for the Emacs version need to come to me
-at csebold+textile ==-at-== gmail.com.
+generation tools on Dean Allen's and Brad Choate's websites; it is *not*
+a port of PHP or Perl code to Emacs Lisp.  I have never laid eyes on the
+code for either Textile or MT-Textile.  Dean Allen and Brad Choate are
+not responsible for this implementation of Textile in any way, and all
+bug reports for the Emacs version need to come to me at csebold+textile
+==-at-== gmail.com.
 
 At this point I don't plan to accept suggestions for improvements
 (except for actual bug reports) until after 2.0 is released, but feel
