@@ -464,6 +464,8 @@ If ARG, insert string at point."
                ((equal this-char ?\~)
                 (push-assoc 'bottom 'valignment my-list)
                 (forward-char 1))
+               ((equal this-char ?\_)
+                (forward-char 1))
                ((looking-at "[\\]\\([0-9]+\\)")
                 (push-assoc (match-string 1) 'colspan my-list)
                 (re-search-forward "[\\]\\([0-9]+\\)" nil t))
@@ -484,6 +486,7 @@ If ARG, insert string at point."
 
 (defvar Textile-valid-attribs
   '((default "{[()<>=") ("table" "{[()<>=^~\\/-")
+    ("th" "{[()<>=^~\\/-_") ("td" "{[()<>=^~\\/-")
     ("img" "{[()<>=^~"))
   "Characters which can start an attrib string in a Textile tag.")
 
@@ -491,12 +494,16 @@ If ARG, insert string at point."
   "Return a string of valid attribute chars for MY-TAG."
   (cadr
    (or
-    (assq my-tag Textile-valid-attribs)
+    (assoc my-tag Textile-valid-attribs)
     (assoc 'default Textile-valid-attribs))))
 
 (defmacro cdr-assoc (my-symbol my-alist)
   "Return the CDR of key MY-SYMBOL from MY-ALIST."
   `(cdr (assoc ,my-symbol ,my-alist)))
+
+(defmacro cadr-assoc (my-symbol my-alist)
+  "Return the CADR of key MY-SYMBOL from MY-ALIST."
+  `(cadr (assoc ,my-symbol ,my-alist)))
 
 (defun Textile-interpret-attributes (context-arg style-arg cite-arg
                                                  &optional my-table
@@ -514,15 +521,15 @@ string."
           (setq cite-arg (replace-match "" t t cite-arg)))
       (let ((style (cdr-assoc 'style my-plist))
             (class (cdr-assoc 'class my-plist))
-            (id (car (cdr-assoc 'id my-plist)))
+            (id (cadr-assoc 'id my-plist))
             ; note that id and lang should both have only one value
-            (lang (car (cdr-assoc 'lang my-plist)))
+            (lang (cadr-assoc 'lang my-plist))
             (left-pad 0)
             (right-pad 0)
-            (align nil)
+            (align (cadr-assoc 'alignment my-plist))
             (valign nil)
-            (rowspan (cdr-assoc 'rowspan my-plist))
-            (colspan (cdr-assoc 'colspan my-plist))
+            (rowspan (cadr-assoc 'rowspan my-plist))
+            (colspan (cadr-assoc 'colspan my-plist))
             (textile-header nil)
             (not-finished t)
             (height nil)
@@ -542,36 +549,50 @@ string."
                 (> left-pad 0)
                 (> right-pad 0))
                (assoc 'style my-plist))
-          (when (member "text-align:left" style)
+          (when (member "text-align:left" (assoc 'style my-plist))
+            ; FIXME: need a delete-assoc macro?
             (setq style (delete "text-align:left" style))
-            (push "float:left" style))
-          (when (member "text-align:right" style)
+            (push-assoc "float:left" 'style my-plist))
+          (when (member "text-align:right" (assoc 'style my-plist))
+            ; FIXME: need a delete-assoc macro?
             (setq style (delete "text-align:right" style))
-            (push "float:right" style)))
-        (when (equal (cdr-assoc 'alignment my-plist) 'left)
+            (push-assoc "float:right" 'style my-plist)))
+        (when (equal align 'left)
           (cond
            ((string= context-arg "table")
-            (push "float:left" style))
+            (push-assoc "float:left" 'style my-plist))
            ((or (string= context-arg "th")
                 (string= context-arg "td"))
             (setq align "left")
             (if (string= context-arg "th")
                 (Textile-set-align my-table my-column "left")))
            (t
-            (push "left" class)
-            (push "text-align:left" style))))
-        (when (equal (cdr-assoc 'alignment my-plist) 'right)
+            (push-assoc "left" 'class my-plist)
+            (push-assoc "text-align:left" 'style my-plist))))
+        (when (equal (cadr-assoc 'margin my-plist) 'center)
           (cond
            ((string= context-arg "table")
-            (push "float:right" style))
+            (push-assoc "margin-left: auto" 'style my-plist)
+            (push-assoc "margin-right: auto" 'style my-plist))
+           ((or
+             (string= context-arg "th")
+             (string= context-arg "td"))
+            (setq align "center"))
+           (t
+            (push-assoc "center" 'class my-plist)
+            (push-assoc "text-align: center" 'style my-plist))))
+        (when (equal align 'right)
+          (cond
+           ((string= context-arg "table")
+            (push-assoc "float:right" 'style my-plist))
            ((or (string= context-arg "th")
                 (string= context-arg "td"))
             (setq align "right")
             (if (string= context-arg "th")
                 (Textile-set-align my-table my-column "right")))
            (t
-            (push "right" class)
-            (push "text-align:right" style))))
+            (push-assoc "right" 'class my-plist)
+            (push-assoc "text-align:right" 'style my-plist))))
         (when (equal (cdr-assoc 'valignment my-plist) 'top)
           (cond
            ((or (string= context-arg "tr")
@@ -579,7 +600,7 @@ string."
                 (string= context-arg "td"))
             (setq valign "top"))
            ((string= context-arg "img")
-            (push "vertical-align: text-top" style))))
+            (push-assoc "vertical-align: text-top" 'style my-plist))))
         (when (equal (cdr-assoc 'valignment my-plist) 'bottom)
           (cond
            ((or (string= context-arg "tr")
@@ -587,7 +608,10 @@ string."
                 (string= context-arg "td"))
             (setq valign "bottom"))
            ((string= context-arg "img")
-            (push "vertical-align: text-bottom" style))))
+            (push-assoc "vertical-align: text-bottom" 'style
+                                                 my-plist))))
+        (setq style (cdr-assoc 'style my-plist)
+              class (cdr-assoc 'class my-plist))
         (dolist (this-variable '(style class id lang align valign
                                        colspan rowspan
                                        textile-header
@@ -623,7 +647,7 @@ string."
                                         "\"")))
         (if id
             (setq return-string (concat return-string " id=\"" id "\"")))
-        (if align
+        (if (and align (stringp align))
             (setq return-string (concat return-string " align=\""
                                         align "\""))
           (if (and my-column
