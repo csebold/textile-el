@@ -1,3 +1,5 @@
+* All blocks need to start with \n\n or at the beginning of the
+  buffer.  Oops.
 * Oh, I just realized, a line starting with ==> means "literal, but
   float right".  Duh.
 * Extended blockquotes are pretty broken.  The extended block code needs
