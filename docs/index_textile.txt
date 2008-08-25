@@ -35,7 +35,8 @@ table))(>{width: 50%}. |_\3. Release plans|
 |"0.99.1":download/textile-0.99.1.tar.gz|Textile 1/2 support -- final beta release 2|100%|
 |1.0|Textile 1 and 2 support, final release before rewrite|95%[2]|
 |"1.99.1":download/textile-1.99.1.tar.gz|Textile 1/2 support -- alpha[3] release 1, rewrite|100%|
-|2.0|Textile 1 and 2 support, rewrite to use generic parsing|30%|
+|"1.99.2":download/textile-1.99.2.tar.gz|Textile 1/2 support -- alpha release 2|100%|
+|2.0|Textile 1 and 2 support, rewrite to use generic parsing|70%|
 |2.1|Texinfo manual|5%|
 |2.2|XEmacs support|
 |2.3|Integrate into HTML solutions like w3 and w3m|
@@ -104,7 +105,13 @@ Things left to do before each version is released:
 
 h3{color: red}. Recent news
 
-dl. 24 August 2008:It works using Emacs 23 from CVS!  Nasty total
+dl. 25 August 2008:Second alpha release
+"1.99.2":download/textile-1.99.2.tar.gz now available.  Works better
+than previous 1.99 versions, but that's not saying much.  Styles are
+almost correct again.  Still have aliases and tons of little things to
+clean up, including a nasty tendency on the part of the block processor
+to find blocks in the middle of blocks.  Ugh.
+24 August 2008:It works using Emacs 23 from CVS!  Nasty total
 rewrite of the "attribute string" code; current CVS is totally
 broken.  If you want the new parser, use 1.99.1 for now, otherwise
 stick with 0.99.1.  (There are plenty of reasons to use the newer
