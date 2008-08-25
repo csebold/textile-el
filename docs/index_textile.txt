@@ -1,0 +1,236 @@
+==
+#[((textile-header "Textile for Emacs" "XHTML 1.1" "iso-8859-1"
+                "<link rel=\"stylesheet\"
+      href=\"http://zancanda.staticcling.org/emacs/textile/style.css\"
+      type=\"text/css\" title=\"Default\" />"))]#
+==
+
+h1=. Textile for Emacs
+
+Yes, I am implementing "Textile":http://www.textism.com/tools/textile/
+and "Textile 2":http://bradchoate.com/mt/docs/mtmanual_textile2.html for
+Emacs.
+
+Dean Allen calls the original Textile
+
+bq[en]. A Humane Web Text Generator[1]
+
+...which basically means that you can learn a simple but powerful syntax
+for marking up text, and Textile will turn that into valid
+XHTML(Extended Hypertext Markup Language).
+
+At this time textile.el works with GNU(GNU's not Unix) Emacs 21.1 or
+later.  Mule-UCS is required for 21.1 and 21.2 if you want Unicode
+entity conversion.  Mule-UCS is not required for Emacs 21.3 or later.
+Emacs 22 is supported, and at the moment recent CVS of Emacs 23 works.
+Check this page in the future for XEmacs support.
+
+table))(>{width: 50%}. |_\3. Release plans|
+|=. Version|=. Plans|=. % Done|
+|"0.95":download/textile-0.95.tar.gz|Textile 1 support -- beta release 6|100%|
+|"0.96":download/textile-0.96.tar.gz|Textile 1 support -- beta release 7|100%|
+|"0.97":download/textile-0.97.tar.gz|Textile 1 support -- beta release 8|100%|
+|"0.98":download/textile-0.98.tar.gz|Textile 1 support -- beta release 9|100%|
+|"0.99.0":download/textile-0.99.0.tar.gz|Textile 1/2 support -- final beta release 1|100%|
+|"0.99.1":download/textile-0.99.1.tar.gz|Textile 1/2 support -- final beta release 2|100%|
+|1.0|Textile 1 and 2 support, final release before rewrite|95%[2]|
+|"1.99.1":download/textile-1.99.1.tar.gz|Textile 1/2 support -- alpha[3] release 1, rewrite|100%|
+|2.0|Textile 1 and 2 support, rewrite to use generic parsing|30%|
+|2.1|Texinfo manual|5%|
+|2.2|XEmacs support|
+|2.3|Integrate into HTML solutions like w3 and w3m|
+|2.4|Integrate into Gnus/Message|
+|2.5|Minor mode for textile composition|
+|2.6|Support calls out to htmlize.el for pretty-printing code blocks|
+
+There will be more information here when it's time to release v1.0, as
+well as a manual eventually.  We now have a "live demo":test.php running
+if you want to try a recent version of textile.el out.  In the meantime,
+please look in "the download directory":download/ for the "latest
+nightly snapshot":download/textile-latest.tar.gz, check
+"ViewCVS":http://zancanda.staticcling.org/cgi-bin/viewvc.cgi/textile/?root=cvs
+for the detailed information about development, or get the "latest stable
+release":download/textile-stable.tar.gz (which might not have all the
+latest features but may be more likely to work as advertised).
+
+I can't stress this enough: if you want this to work, stick with the
+latest stable release (currently 0.99.1 above).  New development is
+now taking place in textile2.el because I have abandoned the original
+as a dead end.
+
+This page is created in textile.el, and should give you some idea of how
+well things are working so far.  Don't blame textile.el for my simple
+stylesheet.  You can see the original Textile source code for this page
+"here":index_textile.txt.
+
+textile.el is being released under the GNU General Public License.  It
+is being reverse-engineered from the specs and Textile-to-XHTML
+generation tools on Dean Allen's and Brad Choate's websites; it is
+*not* a port of PHP or Perl code to Emacs Lisp.  I have never laid
+eyes on the code for either Textile or MT-Textile.  Dean Allen and
+Brad Choate are not responsible for this implementation of Textile in
+any way, and all bug reports for the Emacs version need to come to me
+at csebold+textile ==-at-== gmail.com.
+
+At this point I don't plan to accept suggestions for improvements
+(except for actual bug reports) until after 2.0 is released, but feel
+free to send me some for consideration after that.
+
+fn1. http://www.textism.com/article/648/textile
+
+fn2. Development will not continue on the 0.99 series.  Use 0.99.1
+stable if you need something that works until the 2.0 series is
+released.
+
+fn3. This is alpha!  This won't just kick you and take your lunch
+money, it will get you drunk, take pictures of you, caption them with
+witty "FAIL" sentiments, and post them on the internet.  Use 0.99.1 if
+you need something that works for now.  But, this is working
+surprisingly well for all that.
+
+h3. Todo
+
+Things left to do before each version is released:
+
+* 1.0 (not going to happen)
+* 2.0
+** Total rewrite using parser (see docs/engineering.txt for details as
+   they become available)
+** pass my own text sample tests and correctly handle this page
+** pass Brad Choate's test cases, which I received thanks to "Roberto
+   De Almeida":http://dealmeida.net/en/Projects/PyTextile/, the
+   excellent hacker currently responsible for PyTextile.
+** any reported bugfixes
+
+h3{color: red}. Recent news
+
+dl. 24 August 2008:It works using Emacs 23 from CVS!  Nasty total
+rewrite of the "attribute string" code; current CVS is totally
+broken.  If you want the new parser, use 1.99.1 for now, otherwise
+stick with 0.99.1.  (There are plenty of reasons to use the newer
+code, though.)
+22 August 2008:First alpha release
+"1.99.1":download/textile-1.99.1.tar.gz of what will be the 2.0
+series.  Use @textile2.el@ for now until we are passing the unit tests
+(or at least more of them).  Lots of things working, but some
+surprising breakage.  It's fast and it doesn't require increases to
+@max-lisp-eval-depth@, which is a huge win.
+14 August 2008:I have given up on the 0.99.x releases.  My efforts
+are now going into the total rewrite (that's @textile2.el@ as opposed
+to @textile.el@ in CVS right now).  About half the block processing is
+finished but we're already doing better in terms of extended blocks
+than we were.  I'm developing this with Brad Choate's unit tests in
+front of me, so every change gets run against his tests to see what
+happens, every time.
+12 August 2008:Fixed blockcode bug (for now) and updated my table
+of planned releases.  I do plan to get as far as I can in fixing old
+bugs before the total rewrite.  It helps me to be even more aware of
+what wheels I already invented, four years ago.  Incremental releases
+fixing obvious bugs until 0.99.5, then progress through BC's unit
+tests until 1.0, then we start all over again.  I'm looking forward to
+it.
+11 August 2008:Finally resurrected my archives and I'm bringing
+textile.el back online!  I hope to actually work on it, too, but we'll
+have to see about that.  Also fixed a minor bug, released 0.99.1
+(mostly just to have done it), and fixed the DOCTYPE for XHTML 1.1.
+15 September 2004:The latest releases from now on are going to be
+broken for a few days, because I am rewriting part of the block
+handler for the fourth time.  If you want one that mostly works, stick
+with CVS v1.137 or final beta release 0.99.0 for now.  I hope to get
+back to this in a week or two with something that passes most of Brad
+Choate's tests.  Watch this space for a release that works as
+expected, but 0.99.0 is good enough for most people's work, I suspect.
+7 September 2004:I had hoped to only have one more beta release
+before the release candidates started coming out, but it wasn't to
+be.  Having received a copy of the test cases for the Perl and Python
+ports of Textile, I have discovered that I still wasn't clear on some
+aspects of the Textile 2 spec, and there are still quite a few bugs
+left, even accounting for my misunderstandings.  So, we're going into
+a "final beta" mode for release, but I have no idea how many releases
+there will have to be before we clear everything up.  The live demo
+helped clear up a few easy bugs.  I have started a new series of
+releases, each of which should asymptotically approach a perfect
+rendering of all the test cases I have received.  We're starting with
+"0.99.0":downloads/textile-0.99.0.tar.gz, which fixes a couple of
+showstoppers which were causing Lisp errors.  Whether the 80/20 rule
+is valid or not, it certainly appears that my silly table above will
+have 1% of the progress requiring 80% of the work.  Oh, and I've
+decided that it will be easier to just strive for Textile 2 compliance
+in this release, not the next one.
+3 September 2004:It isn't pretty, but I have a "live demo of textile.el":test.php
+running now.  By the way, the CVS version of textile.el can now be
+called in batch mode, will process data fed to it on STDIN, and output
+the Textile version when it's done.  Call it something like 
+@emacs -batch -l textile.el < my_textile.txt > my_textile.html@ and see
+what happens.
+3 September 2004:Ninth beta version "0.98":download/textile-0.98.tar.gz
+released.  XHTML 1.1 support has been added, and @lang@ attributes are
+now converted to @==xml:lang==@ attributes if XHTML 1.1 is being
+output.  Note that @textile-header@ now has had a backwards-incompatible
+change; the @HTML-VERSION@ argument has been moved after the @TITLE@
+element and is now optional.  I have started to do some work on the
+manual, and the most basic manual support will probably be there for
+1.0, although I still hope to put together a comprehensive Textile
+format manual for release 1.5.  I think I will announce this version to
+"gnu.emacs.sources":http://groups.google.com/groups?hl=en&lr=lang_en&ie=UTF-8&safe=off&group=gnu.emacs.sources
+early next week and see if I can get more beta testers before 1.0.  Also
+fixed a couple of big "thinko's" in tokenizing which were biting me when
+creating this @<dl>@ entry.
+2 September 2004:Eighth beta version "0.97":download/textile-0.97.tar.gz
+released.  W3C(World Wide Web Consortium) is now recognized as an
+acronym, as are any acronyms with numbers in them.  Figured out how to
+instrument my single Lisp macro, which makes debugging much easier.
+Also added a lengthy comment to the beginning of the code explaining how
+to actually use textile.el, in preparation for public release.  I'm
+considering adding XHTML 1.1 support before the 1.0 release; we'll see
+how ambitious I feel later.
+1 September 2004:Seventh beta version "0.96":download/textile-0.96.tar.gz released.  Now a raw URL like http://www.bradchoate.com will be converted to an @<a
+href>@ link automatically.  I'm about out of things to add to the 1.0
+release; I can't think of another feature to add that hasn't been
+specified for a later release already.
+31 August 2004:Sixth beta version "0.95":download/textile-0.95.tar.gz released.  Now you can evaluate Emacs Lisp expressions, so that
+@#@@[((textile-version))]#@ -> "#[((textile-version))]#".  Also, there
+are some basic standard header and footer functions so that you can have
+an entirely self-hosting Textile-encoded page turn into a valid XHTML
+document without too much escaping.  This, however, is not very elegant.
+See the source for this page to see how it works.  1.0 looms ever closer.
+30 August 2004:Fourth beta version "0.93":download/textile-0.93.tar.gz released.  Fixed a v2 smart-quotes bug -- oh, and this release will actually work
+for somebody who isn't actively developing Textile, unlike the last
+few.  Oops.  I wrote Dean Allen to ask him if he cared if I called
+this "textile.el" but I haven't heard back; I'm sure he's probably too
+busy to care whether somebody implements this in Emacs, but I thought
+it the polite thing to ask.  I imagine that I will go on calling this
+textile.el until I hear otherwise.  In the meantime we are a couple of
+minor useability functions away from a 1.0 release.
+27 August 2004:Third beta version "0.92":download/textile-0.92.tar.gz released.
+All Textile 1 features supported, including handling some unescaped
+HTML.  Most Textile 2 features are supported as well.  Barring major
+bugs we are perilously close to a 1.0 release; now I need to take the
+time to write Dean Allen and ask him if I can call this Textile.  Also
+found a way to fix the problem of nested lists not being generated as
+valid XHTML.
+26 August 2004:Dean Allen's sample text now comes out of textile.el
+in a +mostly+ working fashion, including handling some unescaped HTML
+(mostly @<pre><code>@ blocks and @<a href>@ tags).
+25 August 2004:First beta version "0.9":download/textile-0.9.tar.gz
+released.  All Textile 1 features supported except for proper handling
+of unescaped HTML; the best way to produce valid HTML with Textile is to
+let Textile produce the HTML, no question.  Please send bug reports to
+csebold ==-at-== gmail.com.
+25 August 2004:Unicode support is working for 21.1 + Mule-UCS, 21.3, and 21.4 CVS versions of GNU Emacs.  Fixed a bug caused by a "change in the default behavior of split-string":http://savannah.gnu.org/cgi-bin/viewcvs/emacs/emacs/lisp/subr.el.diff?r1=1.353&r2=1.354.  How frustrating.
+25 August 2004:All inline Textile tags are now processed while other
+things (that would have broken up the string into a string tree) have
+been tokenized, which will hopefully cause our bug from yesterday not to
+rear its ugly head.  In the meantime the code is screaming to be
+refactored again, but I may just release 1.0 before I start working on
+that; the manual is starting to become really important to me.  I still
+have to fix Unicode support, but then a 0.9 beta release should be ready
+to go.
+
+p=. (c) 2004, 2008 Charles Sebold
+
+!http://www.w3.org/Icons/valid-xhtml11-blue 88x31 (Valid XHTML 1.1!)!:http://validator.w3.org/check?uri=referer
+
+==
+#[((textile-footer))]#
+==
