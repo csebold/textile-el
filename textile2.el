@@ -455,6 +455,10 @@ If ARG, insert string at point."
     (assq my-tag Textile-valid-attribs)
     (assoc 'default Textile-valid-attribs))))
 
+(defmacro cdr-assoc (my-symbol my-alist)
+  "Return the CDR of key MY-SYMBOL from MY-ALIST."
+  `(cdr (assoc ,my-symbol ,my-alist)))
+
 (defun Textile-interpret-attributes (context-arg style-arg cite-arg
                                                  &optional my-table
                                                  my-column)
@@ -467,43 +471,38 @@ string."
                         style-arg
                         (Textile-get-valid-attribs context-arg)))
            (string-rest (car my-attribs))
-           (my-plist (cadr my-attribs)))
+           (my-plist (cdr my-attribs)))
       (if (string-match "^:" cite-arg)
           (setq cite-arg (replace-match "" t t cite-arg)))
-      (let ((style (assoc 'style my-plist))
-            (class (assoc 'class my-plist))
-            (id (assoc 'id my-plist))
-            (lang (assoc 'lang my-plist))
+      (let ((style (cdr-assoc 'style my-plist))
+            (class (cdr-assoc 'class my-plist))
+            (id (car (cdr-assoc 'id my-plist)))
+            ; note that id and lang should both have only one value
+            (lang (car (cdr-assoc 'lang my-plist)))
             (left-pad 0)
             (right-pad 0)
             (align nil)
             (valign nil)
-            (rowspan (assoc 'rowspan my-plist))
-            (colspan (assoc 'colspan my-plist))
+            (rowspan (cdr-assoc 'rowspan my-plist))
+            (colspan (cdr-assoc 'colspan my-plist))
             (textile-header nil)
             (not-finished t)
             (height nil)
             (width nil)
             (src nil)
             (textile-well-formed t))
-        (if (assoc 'left-pad my-plist)
-            (push-assoc (format "padding-left:%dem"
-                                (apply '+ (cdr (assoc 'left-pad
-                                                      my-plist))))
-                        'style my-plist))
-        (if (assoc 'right-pad my-plist)
-            (push-assoc (concat "padding-right:%dem"
-                                (apply '+ (cdr (assoc 'right-pad
-                                                      my-plist))))
-                        'style my-plist))
+        (when (cdr-assoc 'left-pad my-plist)
+          (setq left-pad (apply '+ (cdr-assoc 'left-pad my-plist)))
+          (push-assoc (format "padding-left:%dem" left-pad)
+                      'style my-plist))
+        (when (cdr-assoc 'right-pad my-plist)
+          (setq right-pad (apply '+ (cdr-assoc 'right-pad my-plist)))
+          (push-assoc (format "padding-right:%dem" right-pad)
+                      'style my-plist))
         (when (and
                (or
-                (and
-                 (assoc 'left-pad my-plist)
-                 (> (assoc 'left-pad my-plist) 0))
-                (and
-                 (assoc 'right-pad my-plist)
-                 (> (assoc 'right-pad my-plist) 0)))
+                (> left-pad 0)
+                (> right-pad 0))
                (assoc 'style my-plist))
           (when (member "text-align:left" style)
             (setq style (delete "text-align:left" style))
@@ -511,7 +510,7 @@ string."
           (when (member "text-align:right" style)
             (setq style (delete "text-align:right" style))
             (push "float:right" style)))
-        (when (equal (assoc 'alignment my-plist) 'left)
+        (when (equal (cdr-assoc 'alignment my-plist) 'left)
           (cond
            ((string= context-arg "table")
             (push "float:left" style))
@@ -523,7 +522,7 @@ string."
            (t
             (push "left" class)
             (push "text-align:left" style))))
-        (when (equal (assoc 'alignment my-plist) 'right)
+        (when (equal (cdr-assoc 'alignment my-plist) 'right)
           (cond
            ((string= context-arg "table")
             (push "float:right" style))
@@ -535,7 +534,7 @@ string."
            (t
             (push "right" class)
             (push "text-align:right" style))))
-        (when (equal (assoc 'valignment my-plist) 'top)
+        (when (equal (cdr-assoc 'valignment my-plist) 'top)
           (cond
            ((or (string= context-arg "tr")
                 (string= context-arg "th")
@@ -543,7 +542,7 @@ string."
             (setq valign "top"))
            ((string= context-arg "img")
             (push "vertical-align: text-top" style))))
-        (when (equal (assoc 'valignment my-plist) 'bottom)
+        (when (equal (cdr-assoc 'valignment my-plist) 'bottom)
           (cond
            ((or (string= context-arg "tr")
                 (string= context-arg "th")
