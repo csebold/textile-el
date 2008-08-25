@@ -211,16 +211,24 @@ a list whose car is the title and cadr is the URL.")
 (defvar Textile-smart-quotes-list
   '(("\\(?:^\\| \\)\\(--\\)\\(?: \\|$\\)" "&#8212;") ; em-dash
     ("\\(?:^\\| \\)\\(-\\)\\(?: \\|$\\)" "&#8211;") ; en-dash
-    ("\\(\\.\\( ?\\)\\.\\2\\.\\)" "&#8230;") ; ellipsis
+    ("\\(\\.\\( ?\\)\\.\\(?:\\2\\.\\)\\{1,2\\}\\)" "&#8230;") ; ellipsis
     ("\\w\\('\\)\\w" "&#8217;") ; word-apostrophe-letter
     ("[^ ]\\('\\)s" "&#8217;") ; special case apostrophe-s
-    ("\\('\\)[0-9]\\{2\\}s" "&#8217;") ; decades like the '80s
+    ("\\('\\)[0-9]\\{2,4\\}s" "&#8217;") ; decades like the '80s
     (" \\(\"\\)" "&#8220;") ; any double-quote preceded by a space
     (" \\('\\)" "&#8216;") ; any single-quote preceded by a space
     ("\\(\"\\)\\(?: \\|$\\)" "&#8221;") ; any double-quote followed by space
     ("\\('\\)\\(?: \\|$\\)" "&#8217;") ; any single-quote followed by space
     ("[0-9]\\('\\)\\(?:[0-9]\\|x[0-9]\\)" "&#8217;") ; 5'11 works
     ("[0-9]\\(\"\\)\\(?:[0-9]\\|x[0-9]\\)" "&#8221;") ; 5'11" works
+    ("\\(\"\\)\\<" "&#8220;") ; any double-quote before a word
+    ("\\('\\)\\<" "&#8216;") ; any single-quote before a word
+    ("\\>\\(\"\\)" "&#8221;") ; any double-quote after a word
+    ("\\>\\('\\)" "&#8217;") ; any single-quote after a word
+    ("\\(\"\\)\000ei[0-9]+x\000" "&#8220;") ; any double-quote before inline
+    ("\\('\\)\000ei[0-9]+x\000" "&#8216;") ; any single-quote before inline
+    ("\000ei[0-9]+x\000\\(\"\\)" "&#8221;") ; any double-quote after inline
+    ("\000ei[0-9]+x\000\\('\\)" "&#8217;") ; any single-quote after inline
     ("\\(\\`\"\\|\"\\b\\)" "&#8220;")
     ("\\(\\b\"\\|\"\n\\|\"\\'\\)" "&#8221;")
     ("\\(\\`'\\|'\\b\\)" "&#8216;")
@@ -229,6 +237,7 @@ a list whose car is the title and cadr is the URL.")
     ("\\(&#8216;\"\\)" "&#8216;&#8220;")
     ("\\('&#8221;\\)" "&#8217;&#8221;")
     ("\\(\"&#8217;\\)" "&#8221;&#8217;"))
+  ; FIXME: getting better, but not quite right
   "Code to be automatically converted to HTML entities or other things.")
 
 (defvar Textile-alias-list
@@ -1010,25 +1019,21 @@ purposes only!"
                     "\"><code>")
                    t)
     (let ((start-point (point))
-          (end-point (re-search-forward
-                      ; FIXME: replace with Textile-all-blocks-re
-                      (concat "\\(.*\\)\\(\n\n" Textile-tags
-                              "\\([^.]*\\)\\.\\(:[^ ]*\\|\\) \\)") nil t)))
-      (if end-point
-          (replace-match (concat (Textile-new-token
-                                  'block
-                                  (Textile-process-code
-                                   (match-string 1))
-                                  "</code></pre>")
-                                 (match-string 2))
-                         t)
-        (goto-char (point-max))
-        (setq end-point (point))
-        (insert (Textile-new-token 'block
-                                   (Textile-process-code
-                                    (delete-and-extract-region
-                                    start-point end-point))
-                                   "</code></pre>"))))))
+          (end-point (if (re-search-forward
+                          ; go until you find either a normal block
+                          ; token or a sticky blockquote, which we'll
+                          ; replace next
+                          "\n\n\\(?:\000eb[0-9]+x\000\\|bq[^\n]?\.\.\\)" nil t)
+                         (progn
+                           (re-search-backward "\n\n" nil t)
+                           (point))
+                       (goto-char (point-max))
+                       (point))))
+      (insert (Textile-new-token 'block
+                                 (Textile-process-code
+                                  (delete-and-extract-region
+                                   start-point end-point))
+                                 "</code></pre>")))))
 
 (defun Textile-blockcode ()
   "Process single blockcode blocks."
@@ -1084,24 +1089,25 @@ purposes only!"
                     (match-string 1) "\" et_cite=\"" (match-string 2)
                     "\"><p>")
                    t)
-    (let ((end-tag-found nil))
-      (while (and (not end-tag-found)
-                  (re-search-forward "\n\n" nil t))
-        ; FIXME: replace with Textile-all-blocks-re
-        (if (save-match-data
-              (looking-at (concat "\\(" Textile-token-re "\\)\\|\\("
-                                  Textile-tags
-                                  "\\([^.]*\\)\\.\\(:[^ ]*\\|\\) \\)")))
-            (progn
-              (replace-match (concat
-                              (Textile-new-token 'block
-                                                 "</p></blockquote>")
-                              "\n\n")
-                             t)
-              (setq end-tag-found t))
-          (replace-match (Textile-new-token 'block
-                                            "</p>\n\n<p>")
-                         t))))))
+    (let* ((start-point (point))
+           (end-point (if (re-search-forward
+                          ; go until you find a normal block token
+                           "\n\n\000eb[0-9]+x\000" nil t)
+                          (progn
+                            (re-search-backward "\n\n" nil t)
+                            (point))
+                        (goto-char (point-max))
+                        (point)))
+           (block-string (buffer-substring start-point end-point)))
+      (delete-region start-point end-point)
+      (with-temp-buffer
+        (insert block-string)
+        (goto-char (point-min))
+        (while (re-search-forward "\n\n" nil t)
+          (replace-match (Textile-new-token 'block "</p>\n\n<p>")))
+        (setq block-string (buffer-string)))
+      (insert block-string
+              (Textile-new-token 'block "</p></blockquote>")))))
 
 (defun Textile-table-fixup ()
   "Add Textile-style table tags to untagged tables."
@@ -1455,14 +1461,13 @@ purposes only!"
       (Textile-escape-double-equals-blocks)
       ; double-equals escapes inline
       (Textile-escape-double-equals-inline)
-      ; blockcode processor, sticky
-      (Textile-blockcode-sticky)
+      ; FIXME: what about individual blocks before stickies? Then we can
+      ;        be sure of our blocks, since block tokens are different
+      ;        now!
       ; blockcode processor, non-sticky
       (Textile-blockcode)
       ; footnote processor
       (Textile-footnotes)
-      ; go through Textile sticky blockquote tags
-      (Textile-blockquote-sticky)
       ; Fixup tables with "table." codes
       (Textile-table-fixup)
       ; find tables, call out to table processor
@@ -1477,6 +1482,10 @@ purposes only!"
       (Textile-blocks)
       ; lists
       (Textile-lists)
+      ; blockcode processor, sticky
+      (Textile-blockcode-sticky)
+      ; go through Textile sticky blockquote tags
+      (Textile-blockquote-sticky)
       ; inline footnotes
       (Textile-inline-footnotes)
       ; autolink URLs
