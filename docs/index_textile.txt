@@ -109,8 +109,7 @@ dl. 25 August 2008:Second alpha release
 "1.99.2":download/textile-1.99.2.tar.gz now available.  Works better
 than previous 1.99 versions, but that's not saying much.  Styles are
 almost correct again.  Still have aliases and tons of little things to
-clean up, including a nasty tendency on the part of the block processor
-to find blocks in the middle of blocks.  Ugh.
+clean up.
 24 August 2008:It works using Emacs 23 from CVS!  Nasty total
 rewrite of the "attribute string" code; current CVS is totally
 broken.  If you want the new parser, use 1.99.1 for now, otherwise
