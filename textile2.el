@@ -343,53 +343,54 @@ If ARG, insert string at point."
 
 (defun Textile-non-ascii-to-unicode (string)
   "Convert STRING to Unicode entities."
-  (cond
-   ((coding-system-p 'utf-16be) ; Emacs 21.4
-    (let ((unicode-string (encode-coding-string string
-                                                'utf-16be))
-          (unicode-values nil)
-          (output ""))
-      (setq unicode-values (mapcar 'string-to-char
-                                   (Textile-split-string
-                                    unicode-string "")))
-      (while (cdr unicode-values)
-        (setq output (concat output "&#" (number-to-string
-                                          (+ (* (car unicode-values) 256)
-                                             (cadr unicode-values)))
-                             ";"))
-        (setq unicode-values (cddr unicode-values)))
-      output))
-   ((coding-system-p 'utf-16-be) ; Emacs 21.3
-    (let ((unicode-string (encode-coding-string string 'utf-16-be))
-          (unicode-values nil)
-          (output ""))
-      (setq unicode-values (mapcar 'string-to-char
-                                   (nthcdr 2
-                                           (Textile-split-string
-                                            unicode-string ""))))
-      (while (cdr unicode-values)
-        (setq output (concat output "&#" (number-to-string
-                                          (+ (* (car unicode-values) 256)
-                                             (cadr unicode-values)))
-                             ";"))
-        (setq unicode-values (cddr unicode-values)))
-      output))
-   ((coding-system-p 'utf-16-be-no-signature) ; Mule-UCS
-    (let ((unicode-string (encode-coding-string string
-                                                'utf-16-be-no-signature))
-          (unicode-values nil)
-          (output ""))
-      (setq unicode-values (mapcar 'string-to-char (Textile-split-string
-                                                    unicode-string "")))
-      (while (cdr unicode-values)
-        (setq output (concat output "&#" (number-to-string
-                                          (+ (* (car unicode-values) 256)
-                                             (cadr unicode-values)))
-                             ";"))
-        (setq unicode-values (cddr unicode-values)))
-      output))
-   (t
-    string)))
+  (save-match-data
+    (cond
+     ((coding-system-p 'utf-16be) ; Emacs 21.4, 22
+      (let ((unicode-string (encode-coding-string string
+                                                  'utf-16be))
+            (unicode-values nil)
+            (output ""))
+        (setq unicode-values (mapcar 'string-to-char
+                                     (Textile-split-string
+                                      unicode-string "")))
+        (while (cdr unicode-values)
+          (setq output (concat output "&#" (number-to-string
+                                            (+ (* (car unicode-values) 256)
+                                               (cadr unicode-values)))
+                               ";"))
+          (setq unicode-values (cddr unicode-values)))
+        output))
+     ((coding-system-p 'utf-16-be) ; Emacs 21.3
+      (let ((unicode-string (encode-coding-string string 'utf-16-be))
+            (unicode-values nil)
+            (output ""))
+        (setq unicode-values (mapcar 'string-to-char
+                                     (nthcdr 2
+                                             (Textile-split-string
+                                              unicode-string ""))))
+        (while (cdr unicode-values)
+          (setq output (concat output "&#" (number-to-string
+                                            (+ (* (car unicode-values) 256)
+                                               (cadr unicode-values)))
+                               ";"))
+          (setq unicode-values (cddr unicode-values)))
+        output))
+     ((coding-system-p 'utf-16-be-no-signature) ; Mule-UCS
+      (let ((unicode-string (encode-coding-string string
+                                                  'utf-16-be-no-signature))
+            (unicode-values nil)
+            (output ""))
+        (setq unicode-values (mapcar 'string-to-char (Textile-split-string
+                                                      unicode-string "")))
+        (while (cdr unicode-values)
+          (setq output (concat output "&#" (number-to-string
+                                            (+ (* (car unicode-values) 256)
+                                               (cadr unicode-values)))
+                               ";"))
+          (setq unicode-values (cddr unicode-values)))
+        output))
+     (t
+      string))))
 
 (defun textile-region (start end)
   "Call textile-code-to-blocks on region from point to mark."
