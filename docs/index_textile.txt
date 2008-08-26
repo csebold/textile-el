@@ -1,7 +1,7 @@
 ==
 #[((textile-header "Textile for Emacs" "XHTML 1.1" "iso-8859-1"
                 "<link rel=\"stylesheet\"
-      href=\"http://zancanda.staticcling.org/emacs/textile/style.css\"
+      href=\"/emacs/textile/style.css\"
       type=\"text/css\" title=\"Default\" />"))]#
 ==
 
@@ -49,7 +49,7 @@ well as a manual eventually.  We now have a "live demo":test.php running
 if you want to try a recent version of textile.el out.  In the meantime,
 please look in "the download directory":download/ for the "latest
 nightly snapshot":download/textile-latest.tar.gz, check
-"ViewCVS":http://zancanda.staticcling.org/cgi-bin/viewcvs.cgi/textile/?root=cvs
+"ViewCVS":/cgi-bin/viewcvs.cgi/textile/?root=cvs
 for the detailed information about development, or get the "latest stable
 release":download/textile-stable.tar.gz (which might not have all the
 latest features but may be more likely to work as advertised).
@@ -62,7 +62,7 @@ as a dead end.
 This page is created in textile.el, and should give you some idea of how
 well things are working so far.  Don't blame textile.el for my simple
 stylesheet.  You can see the original Textile source code for this page
-"here":http://zancanda.staticcling.org/cgi-bin/viewcvs.cgi/textile/docs/index_textile.txt?root=cvs&view=markup.
+"here":/cgi-bin/viewcvs.cgi/textile/docs/index_textile.txt?root=cvs&view=markup.
 
 textile.el is being released under the GNU General Public License.  It
 is being reverse-engineered from the specs and Textile-to-XHTML
