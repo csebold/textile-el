@@ -215,8 +215,8 @@ a list whose car is the title and cadr is the URL.")
     ("\\w\\('\\)\\w" "&#8217;") ; word-apostrophe-letter
     ("[^ ]\\('\\)s" "&#8217;") ; special case apostrophe-s
     ("\\('\\)[0-9]\\{2,4\\}s" "&#8217;") ; decades like the '80s
-    (" \\(\"\\)" "&#8220;") ; any double-quote preceded by a space
-    (" \\('\\)" "&#8216;") ; any single-quote preceded by a space
+    ("\\(?: \\|\n\\)\\(\"\\)" "&#8220;") ; any double-quote preceded by a space
+    ("\\(?: \\|\n\\)\\('\\)" "&#8216;") ; any single-quote preceded by a space
     ("\\(\"\\)\\(?: \\|$\\)" "&#8221;") ; any double-quote followed by space
     ("\\('\\)\\(?: \\|$\\)" "&#8217;") ; any single-quote followed by space
     ("[0-9]\\('\\)\\(?:[0-9]\\|x[0-9]\\)" "&#8217;") ; 5'11 works
