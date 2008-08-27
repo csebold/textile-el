@@ -3,8 +3,8 @@
 * Oh, I just realized, a line starting with ==> means "literal, but
   float right".  Duh.
 * Hey, how come I didn't know about non-greedy regexps until now?
-* Extended blockquotes are pretty broken.  The extended block code needs
-  a rewrite.  Again.
+* Tables can't have newlines within cells.  That's wrong, but I don't
+  know how the Textile specs deal with that.
 * Emacs is just stopping processing of BC's unit tests after about 600
   lines.  Not sure why.
 * FIXME: testcases.txt, line 285, blockquote attributes (new bug)
