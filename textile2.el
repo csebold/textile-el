@@ -937,6 +937,9 @@ cell."
           ; start processing rows
           (dolist (this-row
                    (Textile-split-string (delete-and-extract-region
+                                          ; this is wrong; splitting on
+                                          ; a newline means no more
+                                          ; newlines inside table cells
                                           (point) (point-max)) "\n"))
             ; need to read to apply row style here
             (insert
@@ -1185,7 +1188,7 @@ purposes only!"
   (goto-char (point-min))
   (while (or (looking-at "|[^\n]*|")
              (re-search-forward (concat "\\(\`\\|\n\n\\)"
-                                        "\\(|.*|\\)") nil t))
+                                        "\\(|.*?|\\)") nil t))
     (replace-match (concat (match-string 1)
                            "table. " (match-string 2)) t)))
 
