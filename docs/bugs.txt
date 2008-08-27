@@ -2,6 +2,7 @@
   buffer.  Oops.
 * Oh, I just realized, a line starting with ==> means "literal, but
   float right".  Duh.
+* Hey, how come I didn't know about non-greedy regexps until now?
 * Extended blockquotes are pretty broken.  The extended block code needs
   a rewrite.  Again.
 * Emacs is just stopping processing of BC's unit tests after about 600
