@@ -7,42 +7,34 @@
 
 h1=. Textile for Emacs
 
-Yes, I am implementing "Textile":http://www.textism.com/tools/textile/
-and "Textile 2":http://bradchoate.com/mt/docs/mtmanual_textile2.html for
+Yes, I am implementing "Textile":http://textile.thresholdstate.com/ for
 Emacs.
 
-Dean Allen calls the original Textile
-
-bq[en]. A Humane Web Text Generator[1]
-
-...which basically means that you can learn a simple but powerful syntax
-for marking up text, and Textile will turn that into valid
-XHTML(Extended Hypertext Markup Language).
+Dean Allen calls the original Textile a "Humane Web Text
+Generator"[1]... which basically means that you can learn a simple but
+powerful syntax for marking up text, and Textile will turn that into
+valid XHTML(Extended Hypertext Markup Language).  See "Brad Choate's
+specification":http://bradchoate.com/mt/docs/mtmanual_textile2.html for
+a full manual of how the markup works.
 
 At this time textile.el works with GNU(GNU's not Unix) Emacs 21.1 or
-later.  Mule-UCS is required for 21.1 and 21.2 if you want Unicode
-entity conversion.  Mule-UCS is not required for Emacs 21.3 or later.
-Emacs 22 is supported, and at the moment recent CVS of Emacs 23 works.
-Check this page in the future for XEmacs support.
+later, with full support available for 21.3 and later.  Mule-UCS is
+required for 21.1 and 21.2 if you want Unicode entity conversion.
+Mule-UCS is not required for Emacs 21.3 or later.  Emacs 22 and the
+coming 23 are fully supported.  Check this page in the future for XEmacs
+support.
 
 table))(>{width: 50%}. |_\3. Release plans|
 |=. Version|=. Plans|=. % Done|
-|"0.95":download/textile-0.95.tar.gz|Textile 1 support -- beta release 6|100%|
-|"0.96":download/textile-0.96.tar.gz|Textile 1 support -- beta release 7|100%|
-|"0.97":download/textile-0.97.tar.gz|Textile 1 support -- beta release 8|100%|
-|"0.98":download/textile-0.98.tar.gz|Textile 1 support -- beta release 9|100%|
 |"0.99.0":download/textile-0.99.0.tar.gz|Textile 1/2 support -- final beta release 1|100%|
 |"0.99.1":download/textile-0.99.1.tar.gz|Textile 1/2 support -- final beta release 2|100%|
 |1.0|Textile 1 and 2 support, final release before rewrite|95%[2]|
 |"1.99.1":download/textile-1.99.1.tar.gz|Textile 1/2 support -- alpha[3] release 1, rewrite|100%|
 |"1.99.2":download/textile-1.99.2.tar.gz|Textile 1/2 support -- alpha release 2|100%|
-|2.0|Textile 1 and 2 support, rewrite to use generic parsing|70%|
-|2.1|Texinfo manual|5%|
+|2.0|Textile 1 and 2 support, rewrite to use generic parsing|80%|
+|2.1|Texinfo manual, font-lock support for Textile|5%|
 |2.2|XEmacs support|
-|2.3|Integrate into HTML solutions like w3 and w3m|
-|2.4|Integrate into Gnus/Message|
-|2.5|Minor mode for textile composition|
-|2.6|Support calls out to htmlize.el for pretty-printing code blocks|
+|2.3|Integrate w3, w3m, Gnus/Message|
 
 There will be more information here when it's time to release v1.0, as
 well as a manual eventually.  We now have a "live demo":test.php running
@@ -102,6 +94,13 @@ Things left to do before each version is released:
    De Almeida":http://dealmeida.net/en/Projects/PyTextile/, the
    excellent hacker currently responsible for PyTextile.
 ** any reported bugfixes
+* 2.1
+** Texinfo manual
+** font-lock settings for Textile text (maybe I'll do that first)
+* 2.2 (XEmacs support, if anybody cares)
+* 2.3
+** w3/w3m integration (I don't remember what that means)
+** Gnus/Message integration (yikes, you can send HTML email from Gnus!)
 
 h3{color: red}. Recent news
 
