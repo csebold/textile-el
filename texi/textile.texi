@@ -15,7 +15,7 @@
 @tex
 @titlepage
 @title Textile.el
-@author Charles Sebold (@email{csebold@@livingtorah.org})
+@author Charles Sebold (@email{csebold+textile@@gmail.com})
 @page
 @vskip 0pt plus 1filll
 
@@ -39,10 +39,10 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
 MA 02111-1307, USA.
 
 Latest version should be available at:
-   @uref{http://www.livingtorah.org/~csebold/emacs/textile/}
+   @uref{http://zancanda.staticcling.org/emacs/textile/}
 @end quotation
 
-Copyright @copyright{} 2004 Charles Sebold @email{csebold@@livingtorah.org}
+Copyright @copyright{} 2004, 2008 Charles Sebold @email{csebold+textile@@gmail.com}
 @end titlepage
 
 @contents
@@ -78,10 +78,10 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
 MA 02111-1307, USA.
 
 Latest version should be available at:
-   @uref{http://www.livingtorah.org/~csebold/emacs/textile/}
+   @uref{http://zancanda.staticcling.org/emacs/textile/}
 @end quotation
 
-Copyright @copyright{} 2004 Charles Sebold @email{csebold@@livingtorah.org}
+Copyright @copyright{} 2004 Charles Sebold @email{csebold+textile@@gmail.com}
 
 @menu
 * Why::                         Why use Textile?  Why Textile for Emacs?
@@ -416,7 +416,7 @@ escape it with @code{==}; the best thing to do is either edit without
 
 Do NOT send bug reports on textile.el to Dean Allen or Brad Choate;
 they had nothing to do with the Emacs implementation.  Send bug
-reports to @email{textile-bug@@livingtorah.org}, preferably along with
+reports to @email{csebold+textile@@gmail.com}, preferably along with
 sample text and some description of what you expected to see.
 
 @node Textile Formatting, Extending Textile, Using textile, Top
