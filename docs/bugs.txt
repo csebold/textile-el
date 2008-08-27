@@ -1,3 +1,11 @@
+* FIXME: textile.txt, line 43, quotes
+* FIXME: textile.txt, line 47, inline tags around quotes
+* FIXME: textile.txt, line 93, red span and non-em text
+* FIXME: textile.txt, line 95, inline braces
+* FIXME: textile.txt, line 99, misjudged list item
+* FIXME: textile.txt, line 109, clear
+* FIXME: textile.txt, line 170, extra CR after alias block
+
 * All blocks need to start with \n\n or at the beginning of the
   buffer.  Oops.
 * Oh, I just realized, a line starting with ==> means "literal, but
