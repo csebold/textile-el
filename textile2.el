@@ -74,6 +74,11 @@
 (defvar textile-version "textile2.el v1.99.3"
   "Version number for textile.el.")
 
+(defvar textile-br-all-newlines t
+  "Should all single newlines be made into <br /> tags? Defaults to
+  yes.  If you don't like that, either change this to nil or use
+  longlines.el.")
+
 (defvar Textile-tokens (make-hash-table :test 'eql)
   "Token hash table; this is currently a global, which is probably unwise.")
 
@@ -1468,6 +1473,19 @@ purposes only!"
                                       "</a>"
                                       (match-string 2)))))
 
+(defun Textile-linebreaks ()
+  "Turn single linebreaks into <br /> tags if textile-br-all-newlines is
+t."
+  (when textile-br-all-newlines
+    (goto-char (point-min))
+    (while (re-search-forward
+            "\\([^\n]\\)\n\\(\000ei[0-9]+x\000\\|\000e[^b]\\|[^\n\000]\\)"
+            nil t)
+      (replace-match (concat (match-string 1)
+                             (Textile-new-token 'inline
+                                                "<br />\n")
+                             (match-string 2))))))
+
 (defun Textile-revert-tokens ()
   "Revert all Textile tokens in this buffer."
   (goto-char (point-min))
@@ -1558,6 +1576,8 @@ purposes only!"
       (Textile-unmarked-paragraphs)
       ; Convert non-ASCII values to Unicode
       (Textile-process-non-ascii)
+      ; Single newlines become <br /> tags
+      (Textile-linebreaks)
       ; All Textile tag interpretation is complete.  Now, revert tokens:
       (Textile-revert-tokens)
       ; interpret attributes
