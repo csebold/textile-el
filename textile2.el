@@ -207,6 +207,10 @@
 For each string to match should be either a string which is the URL, or
 a list whose car is the title and cadr is the URL.")
 
+(defvar Textile-alias-hash
+  (make-hash-table :test 'equal)
+  "First empty value for alias hash.")
+
 (defvar Textile-macros-list-defaults
   '(("\\(->\\)" "&#8594;") ("\\((C)\\)" "&#169;") ("\\((R)\\)" "&#174;")
     ("\\((TM)\\)" "&#8482;") ("\\(x\\)[0-9]" "&#215;") ; 3x3
@@ -245,13 +249,15 @@ a list whose car is the title and cadr is the URL.")
   ; FIXME: getting better, but not quite right
   "Code to be automatically converted to HTML entities or other things.")
 
-(defvar Textile-alias-list
-  nil
-  "FIXME: placeholder")
-
-(defun Textile-alias-to-url (lookup alias-list)
-  "FIXME: placeholder"
-  nil)
+(defun Textile-alias-to-url (lookup)
+  "Lookup the link associated with LOOKUP in the alias list and
+  returns a list containing the title (if any) and the URL."
+  (let ((my-alias (gethash lookup Textile-alias-hash)))
+    (if my-alias
+        (if (listp my-alias)
+            my-alias
+          (list "" my-alias))
+      nil)))
 
 (defvar Textile-list-tag-regexp
   "\\(([^ ]+?)\\|\\)\\([*#]+\\)\\([^\n]+\\)"
@@ -1277,7 +1283,7 @@ purposes only!"
            (url (match-string 2))
            (delimiter (match-string 3))
            (title "")
-           (alias-info (Textile-alias-to-url url Textile-alias-list)))
+           (alias-info (Textile-alias-to-url url)))
       (if alias-info
           (progn
             (setq title (car alias-info))
@@ -1516,6 +1522,34 @@ t."
                    t)
     (goto-char (point-min))))
 
+(defun Textile-aliases ()
+  "In the current buffer, read in aliases and replace with empty
+strings."
+  ; reset alias hash
+  (clrhash Textile-alias-hash)
+  ; read in defaults, if any
+  (dolist (this-pair Textile-alias-list-defaults)
+    (puthash (car this-pair) (cadr this-pair) Textile-alias-hash))
+  ; now let's read them in from the buffer
+  (goto-char (point-min))
+  (while (or (looking-at
+              "\\(\\)\\[\\([^]]+\\)\\]\\([^ \000]*?\\)\\(?:\n\\|$\\)")
+             (re-search-forward
+              "\\(\`\\|\n\n\\)\\[\\([^]]+\\)\\]\\([^ \000]*?\\)\\(?:\n\\|$\\)"
+              nil t))
+    (let* ((alias (save-match-data
+                    (delete "" (split-string (match-string 2)
+                                             " (\\|)"))))
+           (alias-name (car alias))
+           (alias-title (cadr alias))
+           (url (match-string 3)))
+      (puthash alias-name
+               (if alias-title
+                   (list alias-title url)
+                 url)
+               Textile-alias-hash))
+    (replace-match (match-string 1))))
+
 (defun textile-string (my-string)
   "The workhorse loop.  Take MY-STRING, dump it in a temp buffer, and
   start operating on it."
@@ -1543,6 +1577,8 @@ t."
       (Textile-blockcode)
       ; footnote processor
       (Textile-footnotes)
+      ; read in aliases
+      (Textile-aliases)
       ; Fixup tables with "table." codes
       (Textile-table-fixup)
       ; find tables, call out to table processor
