@@ -135,13 +135,16 @@
     (make-symbol
      (Textile-string-concat
       (append (butlast
-               (Textile-split-string
-                (symbol-name my-table-name) "-"))
+               (delete "" (split-string
+                           (symbol-name my-table-name) "-")))
               (list
                (format "%d" (1+ (string-to-int
-                                 (car (last (Textile-split-string
-                                             (symbol-name my-table-name)
-                                             "-")))))))) "-"))))
+                                 (car
+                                  (last
+                                   (delete ""
+                                           (split-string
+                                            (symbol-name my-table-name)
+                                            "-"))))))))) "-"))))
 
 (defmacro Textile-increment (my-table-name)
   "Create a new table index based on the previous one."
@@ -183,9 +186,9 @@
   "Generated regular expression for Textile block tags.")
 
 (defvar Textile-inline-tag-list
-  '(("*" "strong") ("_" "em") ("**" "b") ("__" "i") ("++" "big")
-    ("--" "small") ("-" "del") ("+" "ins") ("^" "sup") ("~" "sub")
-    ("%" "span") ("@" "code") ("??" "cite"))
+  '(("*" "strong") ("_" "em") ("**" "b") ("__" "i")
+    ("++" "big") ("--" "small") ("-" "del") ("+" "ins") ("^" "sup")
+    ("~" "sub") ("%" "span") ("??" "cite"))
   "Link textile to HTML tags for inline formatting.")
 
 (defvar Textile-inline-tags
@@ -195,6 +198,10 @@
 (defvar Textile-inline-tag-re
   (concat "\\(^\\|\\W\\)" Textile-inline-tags
           "\\([^\000]+?\\)\\(\\2\\)\\($\\|\\W\\)")
+  "This will match any inline tag and what has been tagged.")
+
+(defvar Textile-inline-code-re
+  "\\(^\\|\\W\\)\\(@\\)\\([^\000]+?\\)\\(\\2\\)\\($\\|\\W\\)"
   "This will match any inline tag and what has been tagged.")
 
 (defvar Textile-escape-tag-re
@@ -319,8 +326,9 @@ a list whose car is the title and cadr is the URL.")
       (setq charset "iso-8859-1"))
     (setq output (concat output charset "\" />\n"))
     (setq output (concat output "<meta name=\"generator\" content=\""
-                         textile-version ", " (car (Textile-split-string
-                                                    (emacs-version) "\n"))
+                         textile-version ", " (car (delete ""
+                                                           (split-string
+                                                            (emacs-version) "\n")))
                          "\" />\n"))
     (while headers
       (setq output (concat output (car headers) "\n"))
@@ -362,8 +370,9 @@ If ARG, insert string at point."
             (unicode-values nil)
             (output ""))
         (setq unicode-values (mapcar 'string-to-char
-                                     (Textile-split-string
-                                      unicode-string "")))
+                                     (delete ""
+                                             (split-string
+                                              unicode-string ""))))
         (while (cdr unicode-values)
           (setq output (concat output "&#" (number-to-string
                                             (+ (* (car unicode-values) 256)
@@ -377,8 +386,9 @@ If ARG, insert string at point."
             (output ""))
         (setq unicode-values (mapcar 'string-to-char
                                      (nthcdr 2
-                                             (Textile-split-string
-                                              unicode-string ""))))
+                                             (delete ""
+                                                     (split-string
+                                                      unicode-string "")))))
         (while (cdr unicode-values)
           (setq output (concat output "&#" (number-to-string
                                             (+ (* (car unicode-values) 256)
@@ -391,8 +401,9 @@ If ARG, insert string at point."
                                                   'utf-16-be-no-signature))
             (unicode-values nil)
             (output ""))
-        (setq unicode-values (mapcar 'string-to-char (Textile-split-string
-                                                      unicode-string "")))
+        (setq unicode-values (mapcar 'string-to-char
+                                     (delete "" (split-string
+                                                 unicode-string ""))))
         (while (cdr unicode-values)
           (setq output (concat output "&#" (number-to-string
                                             (+ (* (car unicode-values) 256)
@@ -425,16 +436,6 @@ If ARG, insert string at point."
             (setq inc (+ inc 1)))
           (concat (buffer-name) "-" (number-to-string inc) ".html"))
       (concat (buffer-name) ".html"))))
-
-(if (condition-case nil
-        (split-string "a" "" t)
-      (error nil))
-    (defun Textile-split-string (my-string separator)
-      "Split MY-STRING by SEPARATOR and don't return empty substrings."
-      (split-string my-string separator t))
-  (defun Textile-split-string (my-string separator)
-    "Split MY-STRING by SEPARATOR and don't return empty substrings."
-    (split-string my-string separator)))
 
 (defun textile-buffer ()
   "Call textile-code-to-blocks on the entire buffer."
@@ -512,8 +513,9 @@ If ARG, insert string at point."
                 (replace-match ""))
                ((looking-at "(\\([^) (]+\\))")
                 (let ((this-attrib (save-match-data
-                                     (Textile-split-string
-                                      (match-string 1) "#"))))
+                                     (delete ""
+                                             (split-string
+                                              (match-string 1) "#")))))
                   (if (and (string-match "#" (match-string 1))
                            (= (match-beginning 0) 0))
                       (push-assoc (car this-attrib) 'id my-list)
@@ -936,11 +938,12 @@ cell."
                          t)
           ; start processing rows
           (dolist (this-row
-                   (Textile-split-string (delete-and-extract-region
+                   (delete ""
+                           (split-string (delete-and-extract-region
                                           ; this is wrong; splitting on
                                           ; a newline means no more
                                           ; newlines inside table cells
-                                          (point) (point-max)) "\n"))
+                                          (point) (point-max)) "\n")))
             ; need to read to apply row style here
             (insert
              (with-temp-buffer
@@ -956,9 +959,10 @@ cell."
                                    (match-string 1)
                                    "\" et_cite=\"\">") t))
                (dolist (this-cell
-                        (Textile-split-string
-                         (delete-and-extract-region (point) (point-max))
-                         "|"))
+                        (delete ""
+                                (split-string
+                                 (delete-and-extract-region (point) (point-max))
+                         "|")))
                 ; need to read to apply cell style here
                  (insert
                   (with-temp-buffer
@@ -1433,12 +1437,24 @@ purposes only!"
     (let ((my-tag (cadr (assoc (match-string 2) Textile-inline-tag-list))))
       (replace-match (concat (match-string 1)
                              (Textile-new-token 'inline "<" my-tag ">")
-                             (if (string= my-tag "code")
-                                 (Textile-process-code (match-string 3))
-                               (match-string 3))
+                             (match-string 3)
                              (Textile-new-token 'inline "</" my-tag ">")
                              (match-string 5))
                      t t))
+    (goto-char (point-min))))
+
+(defun Textile-inline-code ()
+  "Process Textile inline code tags in this buffer."
+  (goto-char (point-min))
+  (while (or (looking-at Textile-inline-code-re)
+             (re-search-forward Textile-inline-code-re nil t))
+    (replace-match (concat (match-string 1)
+                           (Textile-new-token
+                            'inline
+                            "<code>"
+                            (Textile-process-code (match-string 3))
+                            "</code>")
+                           (match-string 5)) t t)
     (goto-char (point-min))))
 
 (defun Textile-unmarked-paragraphs ()
@@ -1553,6 +1569,22 @@ strings."
                Textile-alias-hash))
     (replace-match (match-string 1))))
 
+(defun Textile-braces ()
+  "In the current buffer, tokenize out the braces, which should activate
+  embedded inline tags between them."
+  (goto-char (point-min))
+  (while (re-search-forward "\\[\\([^]]+\\)\\]" nil t)
+    (replace-match
+     (concat (Textile-new-token 'inline "")
+             (match-string 1)
+             (Textile-new-token 'inline "")))))
+
+(defun Textile-clears ()
+  "Find the next block token after the clear, dig it out, and add the
+  \"clear:left|right|both\" style to it."
+  ; FIXME: finish this, get it from the attribute (<, >, or nothing).
+  nil)
+
 (defun textile-string (my-string)
   "The workhorse loop.  Take MY-STRING, dump it in a temp buffer, and
   start operating on it."
@@ -1607,12 +1639,18 @@ strings."
       ; macros and quotes
       (Textile-quotes)
       (Textile-macros)
+      ; inline @ code tag before braces
+      (Textile-inline-code)
+      ; inline braces
+      (Textile-braces)
       ; inline tags
       (Textile-inlines)
       ; acronyms
       (Textile-acronyms)
       ; OK, any block that stands alone is a paragraph by now.
       (Textile-unmarked-paragraphs)
+      ; process clear blocks
+      (Textile-clears)
       ; Convert non-ASCII values to Unicode
       (Textile-process-non-ascii)
       ; Single newlines become <br /> tags
