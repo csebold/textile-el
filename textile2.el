@@ -178,7 +178,7 @@
   "List of Textile tags and their HTML counterparts.")
 
 (defvar Textile-all-blocks-re
-  "\\(?:\`\\|\n\n\\)\\(?:bc\\|bq\\|p\\|h[1-5]\\|dl\\|==\n\\|[*] \\|[#] \\)"
+  "\\(?:\`\\|\n\n\\)\\(?:bc\\|bq\\|clear[<>]?\\.\\|p\\|h[1-5]\\|dl\\|==\n\\|[*] \\|[#] \\)"
   "Possible tags that could end a blockcode/blockquote.")
 
 (defvar Textile-tags
@@ -1431,13 +1431,26 @@ purposes only!"
 (defun Textile-inlines ()
   "Process Textile inline tags in this buffer."
   (goto-char (point-min))
-      ; FIXME: not working so well.  Will probably have to hand-carve the RE
+  ; FIXME: not working so well.  Will probably have to hand-carve the RE
   (while (or (looking-at Textile-inline-tag-re)
              (re-search-forward Textile-inline-tag-re nil t))
-    (let ((my-tag (cadr (assoc (match-string 2) Textile-inline-tag-list))))
+    (let* ((my-tag (cadr (assoc (match-string 2)
+                                Textile-inline-tag-list)))
+           (my-tag-valid-attribs (Textile-get-valid-attribs my-tag))
+           (text-split (Textile-split-attribs
+                        (match-string 3) my-tag-valid-attribs))
+           (text-style (car text-split))
+           (rest-of-text (cadr text-split)))
       (replace-match (concat (match-string 1)
-                             (Textile-new-token 'inline "<" my-tag ">")
-                             (match-string 3)
+                             (Textile-new-token 'inline
+                                                "<"
+                                                my-tag
+                                                " et_context=\""
+                                                my-tag
+                                                "\" et_style=\""
+                                                text-style
+                                                "\" et_cite=\"\">")
+                             rest-of-text
                              (Textile-new-token 'inline "</" my-tag ">")
                              (match-string 5))
                      t t))
@@ -1582,8 +1595,30 @@ strings."
 (defun Textile-clears ()
   "Find the next block token after the clear, dig it out, and add the
   \"clear:left|right|both\" style to it."
-  ; FIXME: finish this, get it from the attribute (<, >, or nothing).
-  nil)
+  (goto-char (point-min))
+  (while (re-search-forward "\n\n\000eb[0-9]+x\000clear\\([<>]?\\)\\. *\000eb[0-9]+x\000\n\n" nil t)
+    (let ((clear-horizontal
+           (cond
+            ((string= (match-string 1) "<")
+             "left")
+            ((string= (match-string 1) ">")
+             "right")
+            (t
+             "both"))))
+      (replace-match "\n\n")
+      (when (re-search-forward "\000eb\\([0-9]+\\)x\000" nil t)
+        (let* ((my-index (string-to-int (match-string 1)))
+               (my-token (gethash my-index Textile-tokens)))
+          (with-temp-buffer
+            (insert my-token)
+            (goto-char (point-min))
+            (if (re-search-forward " et_style=\"\\(.*?\\)\"" nil t)
+                (replace-match (concat " et_style=\"{clear:"
+                                       clear-horizontal
+                                       ";}"
+                                       (match-string 1)
+                                       "\"") t t))
+            (puthash my-index (buffer-string) Textile-tokens)))))))
 
 (defun textile-string (my-string)
   "The workhorse loop.  Take MY-STRING, dump it in a temp buffer, and
