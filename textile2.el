@@ -294,16 +294,16 @@ a list whose car is the title and cadr is the URL.")
       (goto-char (point-min))
       (save-excursion
         (while (re-search-forward "<" nil t)
-          (replace-match "&lt;")))
+          (replace-match "&lt;" t)))
       (save-excursion
         (while (re-search-forward ">" nil t)
-          (replace-match "&gt;")))
+          (replace-match "&gt;" t)))
       (save-excursion
         (while (re-search-forward "\"" nil t)
-          (replace-match "&quot;")))
+          (replace-match "&quot;" t)))
       (save-excursion
         (while (re-search-forward "'" nil t)
-          (replace-match "&apos;")))
+          (replace-match "&apos;" t)))
       (buffer-string))))
 
 (defun textile-header (title &optional html-version charset &rest headers)
@@ -668,7 +668,7 @@ string."
             (setq align "center"))
            (t
             (push-assoc "center" 'class my-plist)
-            (push-assoc "text-align: center" 'style my-plist))))
+            (push-assoc "text-align:center" 'style my-plist))))
         (when (equal align 'right)
           (cond
            ((string= context-arg "table")
@@ -1184,7 +1184,7 @@ purposes only!"
         (insert block-string)
         (goto-char (point-min))
         (while (re-search-forward "\n\n" nil t)
-          (replace-match (Textile-new-token 'block "</p>\n\n<p>")))
+          (replace-match (Textile-new-token 'block "</p>\n\n<p>") t))
         (setq block-string (buffer-string)))
       (insert block-string
               (Textile-new-token 'block "</p></blockquote>")))))
@@ -1540,7 +1540,7 @@ purposes only!"
                                       "\">"
                                       (Textile-process-ampersand (match-string 1))
                                       "</a>"
-                                      (match-string 2)))))
+                                      (match-string 2)) t)))
 
 (defun Textile-linebreaks ()
   "Turn single linebreaks into <br /> tags if textile-br-all-newlines is
@@ -1553,7 +1553,7 @@ t."
       (replace-match (concat (match-string 1)
                              (Textile-new-token 'inline
                                                 "<br />\n")
-                             (match-string 2))))))
+                             (match-string 2)) t))))
 
 (defun Textile-revert-tokens ()
   "Revert all Textile tokens in this buffer."
@@ -1611,7 +1611,7 @@ strings."
                    (list alias-title url)
                  url)
                Textile-alias-hash))
-    (replace-match (match-string 1))))
+    (replace-match (match-string 1) t)))
 
 (defun Textile-braces ()
   "In the current buffer, tokenize out the braces, which should activate
@@ -1621,7 +1621,7 @@ strings."
     (replace-match
      (concat (Textile-new-token 'inline "")
              (match-string 1)
-             (Textile-new-token 'inline "")))))
+             (Textile-new-token 'inline "")) t)))
 
 (defun Textile-clears ()
   "Find the next block token after the clear, dig it out, and add the
