@@ -1,3 +1,7 @@
+* FIXME: index_textile.txt, 28, % there and on next line produces a span
+  tag, something wrong with inline tag handling, which didn't happen
+  when Textile was acting recursively on smaller and smaller blocks of
+  text and tokenizing them outward
 * FIXME: textile.txt, line 99, misjudged list item
 * FIXME: textile.txt, line 170, extra CR after alias block
 
