@@ -1,4 +1,3 @@
-* FIXME: textile.txt, line 99, misjudged list item
 * FIXME: textile.txt, line 170, extra CR after alias block
 
 * All blocks need to start with \n\n or at the beginning of the
