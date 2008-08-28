@@ -71,7 +71,7 @@
 ;
 ; See docs/bugs.txt for the bugs in this version.
 
-(defvar textile-version "textile2.el v1.99.3"
+(defvar textile-version "textile2.el v1.99.4"
   "Version number for textile.el.")
 
 (defvar textile-br-all-newlines t
@@ -200,8 +200,10 @@
   "Generated regular expression for Textile inline tags.")
 
 (defvar Textile-inline-tag-re
+  ; FIXME: this isn't the right way to work around the odd inlines
+  ;        % tags across newlines are happening in spite of this
   (concat "\\(^\\|\\W\\)" Textile-inline-tags
-          "\\(\\<[^\n]+?\\>\\)\\(\\2\\)\\($\\|\\W\\)")
+          "\\([^\n]+?\\)\\(\\2\\)\\($\\|\\W\\)")
   "This will match any inline tag and what has been tagged.")
 
 (defvar Textile-inline-code-re
