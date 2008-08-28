@@ -1,27 +1,38 @@
-* FIXME: textile.txt, line 170, extra CR after alias block
+* textile.txt, line 170, extra CR after alias block
+* testcases.txt, line 166, newline in style information broke it
+* testcases.txt, line 331, BC floated the paragraph left
+* testcases.txt, line 413, bold ** is showing up as a list
+* testcases.txt, line 595, spanned the whole thing, spaces and
+  apostrophes included
+* testcases.txt, line 605, failed superscripts in the middle of words
+  (special case needed, probably)
+* testcases.txt, line 635, acronym/title/href mess
+* testcases.txt, line 665, repeated tokens need to be caught
+* testcases.txt, line 715, single quotes in links, ack!
+* testcases.txt, line 729, bracketed double and single quote links
+* testcases.txt, line 761, there's a single quote inside the title, wow
+* testcases.txt, line 781, I disagree with BC on this one
+* testcases.txt, line 811, ouch, parenthesis in the middle shouldn't
+  break this
+* testcases.txt, line 865, broke the image handling code
+* testcases.txt, line 922, titles need to be escaped, I guess?
+* testcases.txt, line 932, repeated tokens again
+* testcases.txt, line 952, darn it, I threw out the brackets
+* testcases.txt, line 962, I sent the colon to the URL
+* testcases.txt, line 982, I'm supposed to catch PHP or other nested
+  tags.  That makes sense.
+* testcases.txt, line 992, repeated tokens again
+* testcases.txt, line 1104, = before block, I had no idea
+* testcases.txt, line 1147, I need to escape preexisting block tags
+  before much of anything else
+* testcases.txt, line 1231, didn't handle the parentheses right at the
+  end of that line
 
 * All blocks need to start with \n\n or at the beginning of the
   buffer.  Oops.
 * Oh, I just realized, a line starting with ==> means "literal, but
-  float right".  Duh.
-* Hey, how come I didn't know about non-greedy regexps until now?
+  float right".  Duh.  (Or does it?)
 * Tables can't have newlines within cells.  That's wrong, but I don't
   know how the Textile specs deal with that.
-* Emacs is just stopping processing of BC's unit tests after about 600
-  lines.  Not sure why.
-* FIXME: testcases.txt, line 285, blockquote attributes (new bug)
-* FIXME: testcases.txt, line 595, interesting - he doesn't change the
-  apos
-* FIXME: testcases.txt, line 605, failed superscripts (?)
-* FIXME: testcases.txt, line 605, nothing changed after that, what
-  happened?
-
-old notes on this:
-
-* FIXME: testcases.txt, line 635, not sure I agree with title handling
-* FIXME: testcases.txt, line 645, doubled the "caps" span, oops
-* FIXME: testcases.txt, line 665, BC skips groups of asterisks greater
-*                                 than two
-* FIXME: testcases.txt, stopped reading the test results after line 665
 
 $Id$
