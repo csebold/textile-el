@@ -200,15 +200,13 @@
   "Generated regular expression for Textile inline tags.")
 
 (defvar Textile-inline-tag-re
-  ; FIXME: this isn't the right way to work around the odd inlines
-  ;        % tags across newlines are happening in spite of this
   (concat "\\(^\\|\\W\\)" Textile-inline-tags
-          "\\([^\n]+?\\)\\(\\2\\)\\($\\|\\W\\)")
+          "\\(.+?\\)\\(\\2\\)\\($\\|\\W\\)")
   "This will match any inline tag and what has been tagged.")
 
 (defvar Textile-inline-code-re
   "\\(^\\|\\W\\)\\(@\\)\\([^\000]+?\\)\\(\\2\\)\\($\\|\\W\\)"
-  "This will match any inline tag and what has been tagged.")
+  "This will match any inline code tag and what has been tagged.")
 
 (defvar Textile-escape-tag-re
   (concat "\\(^\\|\\W\\)=="
@@ -1433,8 +1431,6 @@ purposes only!"
     (goto-char (point-min))
     (while (or (looking-at (car next-item))
                (re-search-forward (car next-item) nil t))
-      ; FIXME: problem, it's tokenizing each one, so it can't tell
-      ; what's coming next.  Do we make a new kind of token?  Yikes.
       (let* ((next-quote (cadr next-item))
              (open-or-close (cond
                              ((or
@@ -1454,29 +1450,34 @@ purposes only!"
 (defun Textile-inlines ()
   "Process Textile inline tags in this buffer."
   (goto-char (point-min))
-  ; FIXME: not working so well.  Will probably have to hand-carve the RE
   (while (or (looking-at Textile-inline-tag-re)
              (re-search-forward Textile-inline-tag-re nil t))
-    (let* ((my-tag (cadr (assoc (match-string 2)
-                                Textile-inline-tag-list)))
-           (my-tag-valid-attribs (Textile-get-valid-attribs my-tag))
-           (text-split (Textile-split-attribs
-                        (match-string 3) my-tag-valid-attribs))
-           (text-style (car text-split))
-           (rest-of-text (cadr text-split)))
-      (replace-match (concat (match-string 1)
-                             (Textile-new-token 'inline
-                                                "<"
-                                                my-tag
-                                                " et_context=\""
-                                                my-tag
-                                                "\" et_style=\""
-                                                text-style
-                                                "\" et_cite=\"\">")
-                             rest-of-text
-                             (Textile-new-token 'inline "</" my-tag ">")
-                             (match-string 5))
-                     t t))
+    (let ((inner-text (match-string 3)))
+      (if (save-match-data
+            (string-match "\000eb[0-9]+x\000" inner-text))
+          (replace-match (Textile-new-token 'inline
+                                            (match-string 2))
+                         t t nil 2)
+        (let* ((my-tag (cadr (assoc (match-string 2)
+                                    Textile-inline-tag-list)))
+               (my-tag-valid-attribs (Textile-get-valid-attribs my-tag))
+               (text-split (Textile-split-attribs
+                            inner-text my-tag-valid-attribs))
+               (text-style (car text-split))
+               (rest-of-text (cadr text-split)))
+          (replace-match (concat (match-string 1)
+                                 (Textile-new-token 'inline
+                                                    "<"
+                                                    my-tag
+                                                    " et_context=\""
+                                                    my-tag
+                                                    "\" et_style=\""
+                                                    text-style
+                                                    "\" et_cite=\"\">")
+                                 rest-of-text
+                                 (Textile-new-token 'inline "</" my-tag ">")
+                                 (match-string 5))
+                         t t))))
     (goto-char (point-min))))
 
 (defun Textile-inline-code ()
@@ -1663,9 +1664,6 @@ strings."
       (Textile-escape-double-equals-blocks)
       ; double-equals escapes inline
       (Textile-escape-double-equals-inline)
-      ; FIXME: what about individual blocks before stickies? Then we can
-      ;        be sure of our blocks, since block tokens are different
-      ;        now!
       ; blockcode processor, non-sticky
       (Textile-blockcode)
       ; footnote processor
