@@ -913,14 +913,14 @@ tokenized text."
                   (replace-match (concat (match-string 0)
                                          (Textile-new-token 'block
                                                             "</li>"))
-                                 t)))
+                                 t t)))
               (setq current-string
                     (concat current-string
                             (Textile-list-item
                              (car current-list-context)
                              item-style)
                             rest-of-item)))))
-        (replace-match current-string t))
+        (replace-match current-string t t))
       (goto-char (point-max))
       (while list-level
         (insert (Textile-close-list-item) "\n" (Textile-close-list (pop list-level))))
@@ -1319,7 +1319,7 @@ purposes only!"
                        ">")
                       text
                       (Textile-new-token 'inline "</a>") delimiter)
-                     t))))
+                     t t))))
 
 (defun Textile-definition-lists ()
   "Process Textile definition lists in this buffer."
