@@ -570,7 +570,9 @@ If ARG, insert string at point."
 (defvar Textile-valid-attribs
   '((default "{[()<>=") ("table" "{[()<>=^~\\/-")
     ("th" "{[()<>=^~\\/-_") ("td" "{[()<>=^~\\/-")
-    ("img" "{[()<>=^~"))
+    ("img" "{[()<>=^~") ("strong" "{") ("em" "{") ("b" "{") ("i" "{")
+    ("big" "{") ("small" "{") ("del" "{") ("ins" "{") ("sup" "{")
+    ("sub" "{") ("span" "{[()") ("cite" "{"))
   "Characters which can start an attrib string in a Textile tag.")
 
 (defun Textile-get-valid-attribs (my-tag)
