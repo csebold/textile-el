@@ -83,7 +83,7 @@
   "Token hash table; this is currently a global, which is probably unwise.")
 
 (defvar Textile-token-re
-  "\000e[bi][0-9]+x\000"
+  "\000e[bi<>][0-9]+x\000"
   "Regular expression for finding a token.")
 
 (defun Textile-new-token (block-or-inline &rest my-strings)
@@ -94,6 +94,10 @@
                  "b")
                 ((equal block-or-inline 'inline)
                  "i")
+                ((equal block-or-inline 'open-quote)
+                 "<")
+                ((equal block-or-inline 'close-quote)
+                 ">")
                 (t
                  (error "Bad argument, %S" block-or-inline)))))
     (puthash current-index (apply 'concat my-strings) Textile-tokens)
@@ -103,7 +107,7 @@
   "Get Textile token by hash index; does not change token table."
   (if (stringp my-index)
       (save-match-data
-        (if (string-match "^\000e[bi]\\([0-9]+\\)x\000$"
+        (if (string-match "^\000e[bi<>]\\([0-9]+\\)x\000$"
                           my-index)
             (setq my-index (string-to-int (match-string 1 my-index)))
           (setq my-index (string-to-int my-index)))))
@@ -235,6 +239,10 @@ a list whose car is the title and cadr is the URL.")
     ("\\(?: \\|\n\\)\\('\\)" "&#8216;") ; any single-quote preceded by a space
     ("\\(\"\\)\\(?: \\|$\\)" "&#8221;") ; any double-quote followed by space
     ("\\('\\)\\(?: \\|$\\)" "&#8217;") ; any single-quote followed by space
+    ("\000e<[0-9]+x\000\\('\\)" "&#8216;") ; open quote then single
+    ("\000e<[0-9]+x\000\\(\"\\)" "&#8220;") ; open quote then double
+    ("\\('\\)\000e>[0-9]+x\000" "&#8217;") ; single quote then closed
+    ("\\(\"\\)\000e>[0-9]+x\000" "&#8221;") ; double quote then closed
     ("[0-9]\\('\\)\\(?:[0-9]\\|x[0-9]\\)" "&#8217;") ; 5'11 works
     ("[0-9]\\(\"\\)\\(?:[0-9]\\|x[0-9]\\)" "&#8221;") ; 5'11" works
     ("\\(\"\\)\\<" "&#8220;") ; any double-quote before a word
@@ -248,12 +256,7 @@ a list whose car is the title and cadr is the URL.")
     ("\\(\\`\"\\|\"\\b\\)" "&#8220;")
     ("\\(\\b\"\\|\"\n\\|\"\\'\\)" "&#8221;")
     ("\\(\\`'\\|'\\b\\)" "&#8216;")
-    ("\\(\\b'\\|'\n\\|'\\'\\)" "&#8217;")
-    ; FIXME: these below may never happen because of tokenizing
-    ("\\(&#8220;'\\)" "&#8220;&#8216;") ; open double quote then single
-    ("\\(&#8216;\"\\)" "&#8216;&#8220;") ; open single quote then double
-    ("\\('&#8221;\\)" "&#8217;&#8221;") ; single quote then open double
-    ("\\(\"&#8217;\\)" "&#8221;&#8217;")) ; double quote then open single
+    ("\\(\\b'\\|'\n\\|'\\'\\)" "&#8217;"))
   ; FIXME: getting better, but not quite right
   "Code to be automatically converted to HTML entities or other things.")
 
@@ -1429,9 +1432,20 @@ purposes only!"
                (re-search-forward (car next-item) nil t))
       ; FIXME: problem, it's tokenizing each one, so it can't tell
       ; what's coming next.  Do we make a new kind of token?  Yikes.
-      (replace-match (Textile-new-token 'inline
-                                        (cadr next-item))
-                     t t nil 1)
+      (let* ((next-quote (cadr next-item))
+             (open-or-close (cond
+                             ((or
+                               (string= next-quote "&#8220;")
+                               (string= next-quote "&#8216;"))
+                              'open-quote)
+                             ((or
+                               (string= next-quote "&#8221;")
+                               (string= next-quote "&#8217;"))
+                              'close-quote)
+                             (t
+                              'inline))))
+        (replace-match (Textile-new-token open-or-close next-quote)
+                       t t nil 1))
       (goto-char (point-min)))))
 
 (defun Textile-inlines ()
@@ -1479,7 +1493,7 @@ purposes only!"
 (defun Textile-unmarked-paragraphs ()
   "Process unmarked paragraphs in this buffer."
   (goto-char (point-min))
-  (when (looking-at "\\([^\000\n]\\|\000ei[0-9]+x\000\\)")
+  (when (looking-at "\\([^\000\n]\\|\000e[i<>][0-9]+x\000\\)")
     (replace-match (concat (Textile-new-token 'block "<p>")
                            (match-string 1))
                    t)
@@ -1490,7 +1504,7 @@ purposes only!"
                                                  "</p>")
                               (match-string 0)) t))))
   (while (re-search-forward
-          "\\(\n\\{2,\\}\\)\\([^\000\n]\\|\000ei[0-9]+x\000\\)"
+          "\\(\n\\{2,\\}\\)\\([^\000\n]\\|\000e[i<>][0-9]+x\000\\)"
           nil t)
     (replace-match (concat (match-string 1)
                            (Textile-new-token 'block "<p>")
@@ -1523,7 +1537,7 @@ t."
   (when textile-br-all-newlines
     (goto-char (point-min))
     (while (re-search-forward
-            "\\([^\n]\\)\n\\(\000ei[0-9]+x\000\\|\000e[^b]\\|[^\n\000]\\)"
+            "\\([^\n]\\)\n\\(\000e[i<>][0-9]+x\000\\|\000e[^b]\\|[^\n\000]\\)"
             nil t)
       (replace-match (concat (match-string 1)
                              (Textile-new-token 'inline
