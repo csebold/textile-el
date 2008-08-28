@@ -83,6 +83,8 @@ witty "FAIL" sentiments, and post them on the internet.  Use 0.99.1 if
 you need something that works for now.  But, this is working
 surprisingly well for all that.
 
+fn4. This one is particularly broken.  I'd avoid it.
+
 h3. Todo
 
 Things left to do before each version is released:
