@@ -1,5 +1,5 @@
 ==
-#[((textile-header "Textile for Emacs" "XHTML 1.1" "iso-8859-1"
+#[((textile-header "Textile for Emacs" "XHTML 1.1" "utf-8"
                 "<link rel=\"stylesheet\"
       href=\"/emacs/textile/style.css\"
       type=\"text/css\" title=\"Default\" />"))]#
