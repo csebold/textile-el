@@ -31,7 +31,8 @@ table))(>{width: 50%}. |_\3. Release plans|
 |1.0|Textile 1 and 2 support, final release before rewrite|95%[2]|
 |"1.99.1":download/textile-1.99.1.tar.gz|Textile 1/2 support -- alpha[3] release 1, rewrite|100%|
 |"1.99.2":download/textile-1.99.2.tar.gz|Textile 1/2 support -- alpha release 2|100%|
-|2.0|Textile 1 and 2 support, rewrite to use generic parsing|80%|
+|"1.99.3":download/textile-1.99.3.tar.gz|Textile 1/2 support -- alpha release 3|100%|
+|2.0|Textile 1 and 2 support, rewrite to use generic parsing|90%|
 |2.1|Texinfo manual, font-lock support for Textile|5%|
 |2.2|XEmacs support|
 |2.3|Integrate w3, w3m, Gnus/Message|
@@ -104,7 +105,13 @@ Things left to do before each version is released:
 
 h3{color: red}. Recent news
 
-dl. 26 August 2008:No real progress on the Textile front, but I did
+dl. 28 August 2008:Third alpha release
+"1.99.3":download/textile-1.99.3.tar.gz now available.  Aliases, clear
+tags, better inline tag support, Unicode almost handled
+properly... getting closer to beta!  We have to pass BC's test cases to
+be beta, as far as I'm concerned.  Then we'll release new "stable"
+versions based on the betas until 2.0.
+26 August 2008:No real progress on the Textile front, but I did
 build a new web server and moved everything to that.
 25 August 2008:Second alpha release
 "1.99.2":download/textile-1.99.2.tar.gz now available.  Works better
