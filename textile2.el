@@ -71,7 +71,7 @@
 ;
 ; See docs/bugs.txt for the bugs in this version.
 
-(defvar textile-version "textile2.el v1.99.4"
+(defvar textile-version "textile2.el v1.99.5"
   "Version number for textile.el.")
 
 (defvar textile-br-all-newlines t
@@ -109,8 +109,8 @@
       (save-match-data
         (if (string-match "^\000e[bi<>]\\([0-9]+\\)x\000$"
                           my-index)
-            (setq my-index (string-to-int (match-string 1 my-index)))
-          (setq my-index (string-to-int my-index)))))
+            (setq my-index (string-to-number (match-string 1 my-index)))
+          (setq my-index (string-to-number my-index)))))
   (gethash my-index Textile-tokens))
 
 (defun Textile-clear-tokens ()
@@ -142,7 +142,7 @@
                (delete "" (split-string
                            (symbol-name my-table-name) "-")))
               (list
-               (format "%d" (1+ (string-to-int
+               (format "%d" (1+ (string-to-number
                                  (car
                                   (last
                                    (delete ""
@@ -226,6 +226,10 @@ a list whose car is the title and cadr is the URL.")
   '(("\\(->\\)" "&#8594;") ("\\((C)\\)" "&#169;") ("\\((R)\\)" "&#174;")
     ("\\((TM)\\)" "&#8482;") ("\\(x\\)[0-9]" "&#215;") ; 3x3
     ("\\(<-\\)" "&#8592;"))
+  "Code to be automatically converted to HTML entities or other things.")
+
+(defvar Textile-macros-list
+  Textile-macros-list-defaults
   "Code to be automatically converted to HTML entities or other things.")
 
 (defvar Textile-smart-quotes-list
@@ -1638,7 +1642,7 @@ strings."
              "both"))))
       (replace-match "\n\n")
       (when (re-search-forward "\000eb\\([0-9]+\\)x\000" nil t)
-        (let* ((my-index (string-to-int (match-string 1)))
+        (let* ((my-index (string-to-number (match-string 1)))
                (my-token (gethash my-index Textile-tokens)))
           (with-temp-buffer
             (insert my-token)
@@ -1655,6 +1659,8 @@ strings."
   "The workhorse loop.  Take MY-STRING, dump it in a temp buffer, and
   start operating on it."
   (Textile-clear-tokens)
+  ; FIXME: this is wrong, all these should be either global or passed
+  ; into the functions, shouldn't they?
   (let ((Textile-macros-list Textile-macros-list-defaults)
         (my-table (Textile-new-table-alignment))
         (my-table-col 0))
@@ -1735,7 +1741,8 @@ strings."
   (send-string-to-terminal arg))
 
 (when noninteractive
-  (let ((input-string ""))
+  (let ((input-string "")
+        (current-line nil))
     (while (condition-case nil
 	       (setq current-line (Textile-batch-read))
 	     (error nil))
