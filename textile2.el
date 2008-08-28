@@ -201,7 +201,7 @@
 
 (defvar Textile-inline-tag-re
   (concat "\\(^\\|\\W\\)" Textile-inline-tags
-          "\\([^\n]+?\\)\\(\\2\\)\\($\\|\\W\\)")
+          "\\(\\<[^\n]+?\\>\\)\\(\\2\\)\\($\\|\\W\\)")
   "This will match any inline tag and what has been tagged.")
 
 (defvar Textile-inline-code-re
