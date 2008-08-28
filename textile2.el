@@ -257,7 +257,6 @@ a list whose car is the title and cadr is the URL.")
     ("\\(\\b\"\\|\"\n\\|\"\\'\\)" "&#8221;")
     ("\\(\\`'\\|'\\b\\)" "&#8216;")
     ("\\(\\b'\\|'\n\\|'\\'\\)" "&#8217;"))
-  ; FIXME: getting better, but not quite right
   "Code to be automatically converted to HTML entities or other things.")
 
 (defun Textile-alias-to-url (lookup)
@@ -1387,6 +1386,8 @@ purposes only!"
              (re-search-forward (concat "\\(?:\`\\|\n\n\\)"
                                         Textile-list-tag-regexp)
                                 nil t))
+    ; FIXME: "lists" that are actually strong inline tags need to be
+    ; caught somewhere in here
     (let ((first-part (match-string 0))
           (second-part "")
           (start-point (point)))
