@@ -26,7 +26,7 @@ which starts with no list item tag
 
 h2. Textile lisp evaluation:
 
-This is #[((textile-version t))]# running on #[((car (Textile-split-string (emacs-version) "\n")))]# if you were curious.
+This is #[((textile-version t))]# running on #[((car (delete "" (split-string (emacs-version) "\n"))))]# if you were curious.
 
 What about @#@@[((textile-version t))]#@?
 
@@ -80,7 +80,7 @@ OK, "here is a link":http://zancanda.staticcling.org to my website.
 
 "Here is a link":http://zancanda.staticcling.org, and "here's another":http://zancanda.staticcling.org.
 
-Let's try aliases: "here":zso is the ministry link, and "here":zst is the journal.
+Let's try aliases: "here":zso is the main page link, and "here":zst is the page about Textile.
 
 And then "a normal link (Sun)":http://www.sun.com to Sun's website.
 
@@ -106,7 +106,7 @@ bq. This is a blockquote.
 I am going to cut it into small lines
 With their own line breaks.
 
-clear.
+clear>.
 
 dl. term:definition
 block:not usually something like this,
