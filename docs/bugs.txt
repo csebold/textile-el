@@ -1,6 +1,4 @@
-* FIXME: textile.txt, line 43, quotes
-* FIXME: textile.txt, line 47, inline tags around quotes
-* FIXME: textile.txt, line 73, inlines around images
+* FIXME: textile.txt, line 43, quotes (because of tokens)
 * FIXME: textile.txt, line 99, misjudged list item
 * FIXME: textile.txt, line 170, extra CR after alias block
 
