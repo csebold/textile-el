@@ -1386,8 +1386,6 @@ purposes only!"
              (re-search-forward (concat "\\(?:\`\\|\n\n\\)"
                                         Textile-list-tag-regexp)
                                 nil t))
-    ; FIXME: "lists" that are actually strong inline tags need to be
-    ; caught somewhere in here
     (let ((first-part (match-string 0))
           (second-part "")
           (start-point (point)))
@@ -1396,9 +1394,18 @@ purposes only!"
       (if (re-search-forward "\n\n" nil t)
           (re-search-backward "\n\n" nil t)
         (goto-char (point-max)))
-      (insert (Textile-list-process (concat first-part
-                                            (delete-and-extract-region
-                                             start-point (point))))))))
+      (let ((possible-list (concat first-part
+                                   (buffer-substring start-point (point)))))
+        (if (and (= (length (delete "" (split-string possible-list
+                                                     "\n"))) 1)
+                 (save-match-data
+                   (and
+                    (string-match Textile-inline-tag-re possible-list)
+                    (string= (match-string 2 possible-list) "*"))))
+            (insert first-part)
+          (insert (Textile-list-process (concat first-part
+                                                (delete-and-extract-region
+                                                 start-point (point))))))))))
 
 (defun Textile-inline-footnotes ()
   "Process Textile inline footnotes in this buffer."
