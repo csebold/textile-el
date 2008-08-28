@@ -197,7 +197,7 @@
 
 (defvar Textile-inline-tag-re
   (concat "\\(^\\|\\W\\)" Textile-inline-tags
-          "\\([^\000]+?\\)\\(\\2\\)\\($\\|\\W\\)")
+          "\\([^\n]+?\\)\\(\\2\\)\\($\\|\\W\\)")
   "This will match any inline tag and what has been tagged.")
 
 (defvar Textile-inline-code-re
@@ -239,8 +239,8 @@ a list whose car is the title and cadr is the URL.")
     ("[0-9]\\(\"\\)\\(?:[0-9]\\|x[0-9]\\)" "&#8221;") ; 5'11" works
     ("\\(\"\\)\\<" "&#8220;") ; any double-quote before a word
     ("\\('\\)\\<" "&#8216;") ; any single-quote before a word
-    ("\\>\\(\"\\)" "&#8221;") ; any double-quote after a word
-    ("\\>\\('\\)" "&#8217;") ; any single-quote after a word
+    ("\\(?:\\>\\|[.?!]\\)\\(\"\\)" "&#8221;") ; any double-quote after a word
+    ("\\(?:\\>\\|[.?!]\\)\\('\\)" "&#8217;") ; any single-quote after a word
     ("\\(\"\\)\000ei[0-9]+x\000" "&#8220;") ; any double-quote before inline
     ("\\('\\)\000ei[0-9]+x\000" "&#8216;") ; any single-quote before inline
     ("\000ei[0-9]+x\000\\(\"\\)" "&#8221;") ; any double-quote after inline
@@ -249,10 +249,11 @@ a list whose car is the title and cadr is the URL.")
     ("\\(\\b\"\\|\"\n\\|\"\\'\\)" "&#8221;")
     ("\\(\\`'\\|'\\b\\)" "&#8216;")
     ("\\(\\b'\\|'\n\\|'\\'\\)" "&#8217;")
-    ("\\(&#8220;'\\)" "&#8220;&#8216;")
-    ("\\(&#8216;\"\\)" "&#8216;&#8220;")
-    ("\\('&#8221;\\)" "&#8217;&#8221;")
-    ("\\(\"&#8217;\\)" "&#8221;&#8217;"))
+    ; FIXME: these below may never happen because of tokenizing
+    ("\\(&#8220;'\\)" "&#8220;&#8216;") ; open double quote then single
+    ("\\(&#8216;\"\\)" "&#8216;&#8220;") ; open single quote then double
+    ("\\('&#8221;\\)" "&#8217;&#8221;") ; single quote then open double
+    ("\\(\"&#8217;\\)" "&#8221;&#8217;")) ; double quote then open single
   ; FIXME: getting better, but not quite right
   "Code to be automatically converted to HTML entities or other things.")
 
@@ -1426,9 +1427,12 @@ purposes only!"
     (goto-char (point-min))
     (while (or (looking-at (car next-item))
                (re-search-forward (car next-item) nil t))
+      ; FIXME: problem, it's tokenizing each one, so it can't tell
+      ; what's coming next.  Do we make a new kind of token?  Yikes.
       (replace-match (Textile-new-token 'inline
                                         (cadr next-item))
-                     t t nil 1))))
+                     t t nil 1)
+      (goto-char (point-min)))))
 
 (defun Textile-inlines ()
   "Process Textile inline tags in this buffer."
