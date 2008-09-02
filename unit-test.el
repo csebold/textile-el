@@ -41,17 +41,33 @@ to \\n)."
   "Test Textile functionality against a standard testcases.txt-format
 file."
   (interactive)
-  (let ((all-tests (delete "" (split-string (buffer-string)
-                                            "-----\n"))))
-    (dolist (this-test all-tests)
-      (let* ((test-q-and-a (delete ""
-                                   (split-string this-test
-                                                 "==>\n")))
-             (test-title (Tut-get-title (car test-q-and-a)))
-             (test-q (Tut-trim-string (car test-q-and-a)))
-             (test-a (Tut-trim-string (cadr test-q-and-a)))
-             (test-x (textile-string test-q)))
-        (if (not (string= test-a test-x))
-            (message "Test %s failed." test-title))))))
+  (let ((original-buffer (buffer-string))
+        (output-buffer (get-buffer-create
+                        (format "*%s Textile unit test*"
+                                (buffer-name)))))
+    (with-current-buffer output-buffer
+      (delete-region (point-min) (point-max)))
+    (with-temp-buffer
+      (insert original-buffer)
+      (goto-char (point-min))
+      (while (re-search-forward "^//" nil t)
+        (insert (format "%d" (line-number-at-pos))))
+      (let ((all-tests (delete "" (split-string (buffer-string)
+                                                "-----\n"))))
+        (dolist (this-test all-tests)
+          (let* ((test-q-and-a (delete ""
+                                       (split-string this-test
+                                                     "==>\n")))
+                 (test-title (Tut-get-title (car test-q-and-a)))
+                 (test-q (Tut-trim-string (car test-q-and-a)))
+                 (test-a (Tut-trim-string (cadr test-q-and-a)))
+                 (test-x (textile-string test-q)))
+            (if (not (string= test-a test-x))
+                (with-current-buffer output-buffer
+                  (insert
+                   (format
+                    "Failed line \"%s\":\n\nExpected:\n%s\n\nGot:\n%s\n\n"
+                    test-title test-a test-x))))))))
+    (switch-to-buffer output-buffer)))
 
 (provide 'unit-test)
