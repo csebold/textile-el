@@ -56,7 +56,7 @@ as a dead end.
 This page is created in textile.el, and should give you some idea of how
 well things are working so far.  Don't blame textile.el for my simple
 stylesheet.  You can see the original Textile source code for this page
-"here":/cgi-bin/gitweb.cgi?p=textile.git;a=blob_plain;f=docs/index_textile.txt
+"here":/cgi-bin/gitweb.cgi?p=textile.git;a=blob_plain;f=docs/index_textile.txt.
 
 textile.el is being released under the GNU General Public License.  It
 is being reverse-engineered from the specs and Textile-to-XHTML
