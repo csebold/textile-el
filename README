@@ -1,0 +1,10 @@
+-*- mode: text; -*-
+
+This is an implementation of Dean Allen's and Brad Choate's Textile
+markup language for Emacs Lisp.
+
+It has been a few years since I have worked on it, and I probably need
+to start all over again, but for what it's worth, here it is.
+
+Charles Sebold (csebold AT gmail.com)
+Thu  2 Jun 2011 15:39
